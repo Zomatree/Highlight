@@ -1,0 +1,116 @@
+use proc_macro::TokenStream;
+use quote::{format_ident, quote, quote_spanned};
+use syn::{
+    FnArg, Ident, ItemFn, LitStr, Pat, Path, Token, Type,
+    parse::{Parse, Parser},
+    parse_macro_input,
+    punctuated::Punctuated,
+    spanned::Spanned,
+};
+
+#[allow(dead_code)]
+struct CommandInfo {
+    name: LitStr,
+    comma1: Token![,],
+    ident1: Ident,
+    eq1: Token![=],
+    error: Type,
+    comma2: Token![,],
+    ident2: Ident,
+    eq2: Token![=],
+    state: Type,
+}
+
+impl Parse for CommandInfo {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            name: input.parse()?,
+            comma1: input.parse()?,
+            ident1: input.parse()?,
+            eq1: input.parse()?,
+            error: input.parse()?,
+            comma2: input.parse()?,
+            ident2: input.parse()?,
+            eq2: input.parse()?,
+            state: input.parse()?,
+        })
+    }
+}
+
+#[proc_macro_attribute]
+pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let info = parse_macro_input!(attr as CommandInfo);
+    let func = parse_macro_input!(item as ItemFn);
+
+    let vis = &func.vis;
+    let func_name = &func.sig.ident;
+    let command_name = info.name.value();
+    let error_type = &info.error;
+    let state_type = &info.state;
+    let parameters = &func.sig.inputs;
+
+    let mut parameter_names = Vec::new();
+
+    let converters = parameters.iter().skip(1).map(|param| {
+        let FnArg::Typed(param) = param else { panic!("self parameter") };
+        let Pat::Ident(ref ident) = *param.pat else { panic!("not a typed param") };
+        let ident = &ident.ident;
+        let ty = &param.ty;
+
+        let var_name = format_ident!("__revolt_{ident}");
+        parameter_names.push(var_name.clone());
+
+        quote! {
+            let __temp = context.words.next().ok_or(::revolt::Error::MissingParameter)?;
+            let #var_name = <#ty as Converter<#error_type, #state_type>>::convert(context, __temp).await?;
+        }
+    });
+
+    quote! {
+        #func
+
+        #[doc(hidden)]
+        #[allow(nonstandard_style)]
+        #vis struct #func_name {}
+
+        #[allow(nonstandard_style, clippy::style)]
+        impl #func_name {
+            fn into_command(self) -> ::revolt::commands::Command<#error_type, #state_type> {
+                fn normalized_func<'a>(context: &'a mut ::revolt::commands::Context<'_, #error_type, #state_type>) -> ::revolt::commands::CommandReturn<'a, #error_type> {
+                    ::std::boxed::Box::pin(async move {
+                        use ::revolt::commands::Converter;
+
+                        #(#converters)*;
+
+                        #func_name(context, #(#parameter_names),*).await
+                    })
+                }
+
+                ::revolt::commands::Command {
+                    name: #command_name.to_string(),
+                    handle: normalized_func
+                }
+            }
+        }
+    }.into()
+}
+
+#[proc_macro]
+pub fn commands(input: TokenStream) -> TokenStream {
+    let paths = Punctuated::<Path, Token![,]>::parse_terminated
+        .parse(input)
+        .unwrap();
+
+    let exprs = paths.iter().map(|path| {
+        quote_spanned!(path.span() => {
+            let __struct = #path {};
+            let __command = __struct.into_command();
+            __command
+        })
+    });
+
+    quote! {
+        vec![#(#exprs),*]
+    }
+    .into()
+}

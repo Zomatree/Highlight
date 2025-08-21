@@ -1,0 +1,12 @@
+[package]
+name = "highlight"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+revolt = { path = "../revolt" }
+tokio = { version = "1.47", features = ["full"] }
+futures = "0.3"
+toml = "0.9"
+serde = { version = "1.0", features = ["derive"] }
+sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio"] }

@@ -1,0 +1,9 @@
+[revolt]
+api = "https://api.revolt.chat"
+
+[bot]
+prefix = "h!"
+token = ""
+
+[database]
+url = ""

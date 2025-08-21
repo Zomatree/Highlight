@@ -1,0 +1,1 @@
+# Highlight bot for Revolt
