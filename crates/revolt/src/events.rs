@@ -6,7 +6,7 @@ use revolt_models::v0::{
     Channel, FieldsChannel, FieldsMessage, FieldsUser, Message, RelationshipStatus,
 };
 
-use crate::{http::HttpClient, state::GlobalState};
+use crate::{http::HttpClient, cache::GlobalCache};
 
 macro_rules! set_enum_varient_values {
     ($enum: ident, $key: ident, $value: expr, ($($varient: path),+)) => {
@@ -35,7 +35,7 @@ macro_rules! update_multi_enum_partial {
     };
 }
 
-pub fn update_state(event: EventV1, state: &mut GlobalState) {
+pub fn update_state(event: EventV1, state: &mut GlobalCache) {
     match event {
         EventV1::Bulk { v } => {
             for e in v {
@@ -284,7 +284,7 @@ pub fn update_state(event: EventV1, state: &mut GlobalState) {
 
 #[derive(Debug)]
 pub struct Context<'a> {
-    pub state: &'a mut GlobalState,
+    pub cache: &'a mut GlobalCache,
     pub http: HttpClient,
 }
 
@@ -294,6 +294,11 @@ pub trait EventHandler<E: Debug + Send + Sync + 'static>: Sized {
     async fn authenticated(&self, context: &Context<'_>) -> Result<(), E> {
         Ok(())
     }
+
+    async fn ready(&self, context: &Context<'_>) -> Result<(), E> {
+        Ok(())
+    }
+
     async fn message(&self, context: &Context<'_>, message: Message) -> Result<(), E> {
         Ok(())
     }

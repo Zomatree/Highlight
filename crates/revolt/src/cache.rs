@@ -5,7 +5,7 @@ use revolt_models::v0::{Channel, Member, Message, Server, User};
 use crate::http::RevoltConfig;
 
 #[derive(Debug, Clone)]
-pub struct GlobalState {
+pub struct GlobalCache {
     pub api_config: RevoltConfig,
 
     pub servers: HashMap<String, Server>,
@@ -17,7 +17,7 @@ pub struct GlobalState {
     pub current_user: Option<User>,
 }
 
-impl GlobalState {
+impl GlobalCache {
     pub fn new(api_config: RevoltConfig) -> Self {
         Self {
             api_config,

@@ -1,0 +1,9 @@
+create table if not exists highlights (
+    user_id text not null,
+    server_id text not null,
+    keyword text not null,
+
+    unique (user_id, server_id, keyword)
+);
+
+create index if not exists highlights_user_id_index on highlights (user_id, server_id);

@@ -1,39 +1,28 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
-    FnArg, Ident, ItemFn, LitStr, Pat, Path, Token, Type,
-    parse::{Parse, Parser},
-    parse_macro_input,
-    punctuated::Punctuated,
-    spanned::Spanned,
+    parse::{Parse, Parser}, parse_macro_input, punctuated::Punctuated, spanned::Spanned, Expr, ExprArray, FnArg, Ident, ItemFn, LitStr, Pat, Path, Token, Type
 };
 
 #[allow(dead_code)]
 struct CommandInfo {
     name: LitStr,
-    comma1: Token![,],
-    ident1: Ident,
-    eq1: Token![=],
-    error: Type,
-    comma2: Token![,],
-    ident2: Ident,
-    eq2: Token![=],
+    error_ty: Type,
     state: Type,
+    children: ExprArray,
 }
 
 impl Parse for CommandInfo {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        Ok(Self {
-            name: input.parse()?,
-            comma1: input.parse()?,
-            ident1: input.parse()?,
-            eq1: input.parse()?,
-            error: input.parse()?,
-            comma2: input.parse()?,
-            ident2: input.parse()?,
-            eq2: input.parse()?,
-            state: input.parse()?,
-        })
+        let name = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let error_ty = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let state = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let children = input.parse()?;
+
+        Ok(Self { name, error_ty, state, children })
     }
 }
 
@@ -45,7 +34,7 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
     let vis = &func.vis;
     let func_name = &func.sig.ident;
     let command_name = info.name.value();
-    let error_type = &info.error;
+    let error_type = &info.error_ty;
     let state_type = &info.state;
     let parameters = &func.sig.inputs;
 
@@ -66,6 +55,26 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     });
 
+    // panic!("{:?}", &info.children.elems);
+
+    let children_iter = info.children.elems.iter().map(|child| {
+        let Expr::Path(path) = &child else { panic!("Not a path to a command") };
+
+        quote_spanned!(path.span() => {
+            let __struct = #path {};
+            let __command = __struct.into_command();
+            __command
+        })
+    });
+
+    let children = quote! {
+        let mut children = ::std::collections::HashMap::new();
+        #({
+            let command = #children_iter;
+            children.insert(command.name.clone(), command);
+        });*
+    };
+
     quote! {
         #func
 
@@ -75,7 +84,7 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         #[allow(nonstandard_style, clippy::style)]
         impl #func_name {
-            fn into_command(self) -> ::revolt::commands::Command<#error_type, #state_type> {
+            pub(crate) fn into_command(self) -> ::revolt::commands::Command<#error_type, #state_type> {
                 fn normalized_func<'a>(context: &'a mut ::revolt::commands::Context<'_, #error_type, #state_type>) -> ::revolt::commands::CommandReturn<'a, #error_type> {
                     ::std::boxed::Box::pin(async move {
                         use ::revolt::commands::Converter;
@@ -86,9 +95,12 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
                     })
                 }
 
+                #children;
+
                 ::revolt::commands::Command {
                     name: #command_name.to_string(),
-                    handle: normalized_func
+                    handle: normalized_func,
+                    children
                 }
             }
         }

@@ -18,7 +18,7 @@ pub enum ClientMessage {
     Ping { data: Ping, responded: Option<()> },
 }
 
-use crate::state::GlobalState;
+use crate::cache::GlobalCache;
 
 macro_rules! send {
     ($ws: ident, $event: expr) => {
@@ -33,7 +33,7 @@ macro_rules! send {
 
 pub async fn run(
     events: UnboundedSender<EventV1>,
-    global_state: Arc<RwLock<GlobalState>>,
+    global_state: Arc<RwLock<GlobalCache>>,
     token: String,
 ) {
     let ws = {

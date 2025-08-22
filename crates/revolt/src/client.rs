@@ -1,7 +1,7 @@
-use std::{fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{fmt::Debug, marker::PhantomData, panic::AssertUnwindSafe, sync::Arc};
 
 use async_recursion::async_recursion;
-use futures::future::join;
+use futures::{future::join, FutureExt};
 use revolt_database::events::client::EventV1;
 use tokio::sync::{
     RwLock,
@@ -11,12 +11,12 @@ use tokio::sync::{
 use crate::{
     events::{Context, EventHandler, update_state},
     http::HttpClient,
-    state::GlobalState,
+    cache::GlobalCache,
     websocket::run,
 };
 
 pub struct Client<H: EventHandler<E>, E: Debug + Send + Sync + 'static> {
-    pub state: Arc<RwLock<GlobalState>>,
+    pub state: Arc<RwLock<GlobalCache>>,
     pub handler: H,
     pub http: HttpClient,
     _e: PhantomData<E>,
@@ -29,7 +29,7 @@ impl<H: EventHandler<E> + Send + Sync, E: Debug + Send + Sync + 'static> Client<
         let api_config = http.get_root().await.unwrap();
 
         Self {
-            state: Arc::new(RwLock::new(GlobalState::new(api_config))),
+            state: Arc::new(RwLock::new(GlobalCache::new(api_config))),
             handler,
             http,
             _e: PhantomData,
@@ -59,12 +59,18 @@ impl<H: EventHandler<E> + Send + Sync, E: Debug + Send + Sync + 'static> Client<
         update_state(event.clone(), &mut state);
 
         let context = Context {
-            state: &mut state,
+            cache: &mut state,
             http: self.http.clone(),
         };
 
-        if let Err(e) = Self::call_event(&mut self.handler, &context, event).await {
-            self.handler.error(&context, e).await;
+        let wrapper = AssertUnwindSafe(async {
+            if let Err(e) = Self::call_event(&mut self.handler, &context, event).await {
+                self.handler.error(&context, e).await;
+            }
+        });
+
+        if let Err(e) = wrapper.catch_unwind().await {
+            println!("{e:?}");
         }
     }
 
@@ -83,6 +89,7 @@ impl<H: EventHandler<E> + Send + Sync, E: Debug + Send + Sync + 'static> Client<
                 Ok(())
             }
             EventV1::Authenticated => handler.authenticated(context).await,
+            EventV1::Ready { .. } => handler.ready(context).await,
             EventV1::Message(message) => handler.message(context, message).await,
             _ => Ok(()),
         }
