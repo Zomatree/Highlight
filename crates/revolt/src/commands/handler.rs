@@ -135,6 +135,7 @@ impl<
             message: message.clone(),
             state: self.state.clone(),
             words,
+            commands: &self.commands,
         };
 
         println!("{:?}", context.command);

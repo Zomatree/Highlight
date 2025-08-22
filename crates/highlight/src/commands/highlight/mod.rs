@@ -4,7 +4,13 @@ use crate::{raise_if_not_in_server, Error, State};
 
 mod add;
 
-#[command("highlight", Error, State, [add::add])]
+#[command(
+    name = "highlight",
+    error = Error,
+    state = State,
+    children = [add::add],
+    description = "Managed highlight keywords",
+)]
 pub async fn highlight(ctx: &mut Context<'_, Error, State>) -> Result<(), Error> {
     let server_id = raise_if_not_in_server(ctx)?;
 

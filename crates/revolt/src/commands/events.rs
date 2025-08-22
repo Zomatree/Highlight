@@ -6,7 +6,7 @@ use crate::{commands::Context, Error};
 
 #[async_trait]
 #[allow(unused)]
-pub trait CommandEventHandler<E: From<Error> + Debug + Send + 'static, S: Debug + Clone + Send + Sync> {
+pub trait CommandEventHandler<E: From<Error> + Debug + Send + Sync + 'static, S: Debug + Clone + Send + Sync> {
     async fn command(&self, context: &mut Context<'_, E, S>) -> Result<(), E> {
         Ok(())
     }

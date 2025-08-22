@@ -3,7 +3,12 @@ use revolt::{command, commands::{ConsumeRest, Context}};
 use crate::{raise_if_not_in_server, Error, State};
 
 
-#[command("add", Error, State, [])]
+#[command(
+    name = "add",
+    error = Error,
+    state = State,
+    description = "Adds a highlight keyword"
+)]
 pub async fn add(ctx: &Context<'_, Error, State>, keyword: ConsumeRest) -> Result<(), Error> {
     let server_id = raise_if_not_in_server(ctx)?;
 

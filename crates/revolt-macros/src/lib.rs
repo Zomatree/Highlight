@@ -1,29 +1,18 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
-    parse::{Parse, Parser}, parse_macro_input, punctuated::Punctuated, spanned::Spanned, Expr, ExprArray, FnArg, Ident, ItemFn, LitStr, Pat, Path, Token, Type
+    parse::Parser, parse_macro_input, punctuated::Punctuated, ExprPath, spanned::Spanned, Expr, ExprArray, FnArg, ItemFn, Pat, Path, Token, Type
 };
+use darling::FromMeta;
 
-#[allow(dead_code)]
+#[derive(FromMeta)]
+#[darling(derive_syn_parse)]
 struct CommandInfo {
-    name: LitStr,
-    error_ty: Type,
-    state: Type,
-    children: ExprArray,
-}
-
-impl Parse for CommandInfo {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let name = input.parse()?;
-        input.parse::<Token![,]>()?;
-        let error_ty = input.parse()?;
-        input.parse::<Token![,]>()?;
-        let state = input.parse()?;
-        input.parse::<Token![,]>()?;
-        let children = input.parse()?;
-
-        Ok(Self { name, error_ty, state, children })
-    }
+    name: String,
+    error: ExprPath,
+    state: ExprPath,
+    children: Option<ExprArray>,
+    description: Option<String>,
 }
 
 #[proc_macro_attribute]
@@ -33,8 +22,8 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let vis = &func.vis;
     let func_name = &func.sig.ident;
-    let command_name = info.name.value();
-    let error_type = &info.error_ty;
+    let command_name = info.name;
+    let error_type = &info.error;
     let state_type = &info.state;
     let parameters = &func.sig.inputs;
 
@@ -55,25 +44,25 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     });
 
+    let description = if let Some(description) = &info.description {
+        quote! { ::std::option::Option::Some(#description.to_string()) }
+    } else {
+        quote! { ::std::option::Option::None }
+    };
+
     // panic!("{:?}", &info.children.elems);
 
-    let children_iter = info.children.elems.iter().map(|child| {
-        let Expr::Path(path) = &child else { panic!("Not a path to a command") };
+    let children = info.children.iter().map(|array| {
+        array.elems.iter().map(|child| {
+            let Expr::Path(path) = &child else { panic!("Not a path to a command") };
 
-        quote_spanned!(path.span() => {
-            let __struct = #path {};
-            let __command = __struct.into_command();
-            __command
+            quote_spanned!(path.span() => {
+                let _struct = #path {};
+                let command = _struct.into_command();
+                children.insert(command.name.clone(), command);
+            })
         })
-    });
-
-    let children = quote! {
-        let mut children = ::std::collections::HashMap::new();
-        #({
-            let command = #children_iter;
-            children.insert(command.name.clone(), command);
-        });*
-    };
+    }).flatten();
 
     quote! {
         #func
@@ -95,12 +84,15 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
                     })
                 }
 
-                #children;
+                let mut children = ::std::collections::HashMap::new();
+
+                #(#children);*
 
                 ::revolt::commands::Command {
                     name: #command_name.to_string(),
                     handle: normalized_func,
-                    children
+                    children,
+                    description: #description,
                 }
             }
         }

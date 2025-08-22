@@ -3,6 +3,7 @@ use revolt::{async_trait, commands::{Context, Command, CommandEventHandler}, com
 use crate::{Error, State};
 
 mod highlight;
+mod help;
 
 pub struct CommandEvents;
 
@@ -26,5 +27,6 @@ impl CommandEventHandler<Error, State> for CommandEvents {
 pub fn commands() -> Vec<Command<Error, State>> {
     commands![
         highlight::highlight,
+        help::help,
     ]
 }
