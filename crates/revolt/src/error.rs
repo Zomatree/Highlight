@@ -1,6 +1,11 @@
-#[derive(Debug)]
+use std::sync::Arc;
+
+#[derive(Debug, Clone)]
 pub enum Error {
-    HttpError(reqwest::Error),
+    HttpError(Arc<reqwest::Error>),
     MissingParameter,
     ConverterError(String),
+    Timeout,
+    BrokenChannel,
+    InternalError
 }

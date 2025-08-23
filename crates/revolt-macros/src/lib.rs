@@ -74,7 +74,7 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[allow(nonstandard_style, clippy::style)]
         impl #func_name {
             pub(crate) fn into_command(self) -> ::revolt::commands::Command<#error_type, #state_type> {
-                fn normalized_func<'a>(context: &'a mut ::revolt::commands::Context<'_, #error_type, #state_type>) -> ::revolt::commands::CommandReturn<'a, #error_type> {
+                fn normalized_func<'a>(context: &'a mut ::revolt::commands::Context<#error_type, #state_type>) -> ::revolt::commands::CommandReturn<'a, #error_type> {
                     ::std::boxed::Box::pin(async move {
                         use ::revolt::commands::Converter;
 

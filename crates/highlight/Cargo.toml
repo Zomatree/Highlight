@@ -11,3 +11,5 @@ toml = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio"] }
 lru = "0.16.0"
+regex = "1.11"
+ulid = "1.2.1"

@@ -1,12 +1,13 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use async_trait::async_trait;
 use revolt_database::events::client::EventV1;
 use revolt_models::v0::{
     Channel, FieldsChannel, FieldsMessage, FieldsUser, Message, RelationshipStatus,
 };
+use tokio::sync::{Mutex, RwLock};
 
-use crate::{http::HttpClient, cache::GlobalCache};
+use crate::{cache::GlobalCache, http::HttpClient, waiters::Waiters};
 
 macro_rules! set_enum_varient_values {
     ($enum: ident, $key: ident, $value: expr, ($($varient: path),+)) => {
@@ -34,6 +35,8 @@ macro_rules! update_multi_enum_partial {
         $(update_enum_partial!($( $($optional)? optional,)? $value, $data, $key, ($($varient),+)));+
     };
 }
+
+
 
 pub fn update_state(event: EventV1, state: &mut GlobalCache) {
     match event {
@@ -282,28 +285,33 @@ pub fn update_state(event: EventV1, state: &mut GlobalCache) {
     }
 }
 
-#[derive(Debug)]
-pub struct Context<'a> {
-    pub cache: &'a mut GlobalCache,
+#[derive(Debug, Clone)]
+pub struct Context {
+    pub cache: Arc<RwLock<GlobalCache>>,
     pub http: HttpClient,
+    pub waiters: Waiters
 }
 
 #[async_trait]
 #[allow(unused)]
 pub trait EventHandler<E: Debug + Send + Sync + 'static>: Sized {
-    async fn authenticated(&self, context: &Context<'_>) -> Result<(), E> {
+    async fn authenticated(&self, context: Context) -> Result<(), E> {
         Ok(())
     }
 
-    async fn ready(&self, context: &Context<'_>) -> Result<(), E> {
+    async fn ready(&self, context: Context) -> Result<(), E> {
         Ok(())
     }
 
-    async fn message(&self, context: &Context<'_>, message: Message) -> Result<(), E> {
+    async fn message(&self, context: Context, message: Message) -> Result<(), E> {
         Ok(())
     }
 
-    async fn error(&self, context: &Context<'_>, error: E) {
+    async fn start_typing(&self, context: Context, channel_id: String, user_id: String) -> Result<(), E> {
+        Ok(())
+    }
+
+    async fn error(&self, context: Context, error: E) {
         println!("Error: {error:?}");
     }
 }

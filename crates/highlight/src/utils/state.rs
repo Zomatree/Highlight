@@ -1,7 +1,8 @@
 use futures::{TryStreamExt, lock::Mutex};
 use lru::LruCache;
+use regex::Regex;
 use sqlx::{PgPool, postgres::PgConnectOptions};
-use std::{num::NonZero, sync::Arc};
+use std::{collections::HashMap, num::NonZero, sync::Arc};
 
 use crate::{Config, Error};
 
@@ -9,7 +10,8 @@ use crate::{Config, Error};
 pub struct State {
     pub config: Arc<Config>,
     pub pool: PgPool,
-    pub cached_keywords: Arc<Mutex<LruCache<(String, String), Vec<String>>>>,
+    pub cached_keywords: Arc<Mutex<LruCache<String, HashMap<String, Regex>>>>,
+    pub cached_blocked: Arc<Mutex<LruCache<String, Vec<String>>>>,
 }
 
 impl State {
@@ -27,15 +29,17 @@ impl State {
         .unwrap();
 
         let cached_keywords = Arc::new(Mutex::new(LruCache::new(NonZero::new(1000).unwrap())));
+        let cached_blocked = Arc::new(Mutex::new(LruCache::new(NonZero::new(1000).unwrap())));
 
         Self {
             pool,
             config,
             cached_keywords,
+            cached_blocked,
         }
     }
 
-    pub async fn fetch_keywords(
+    pub async fn fetch_keywords_for_user(
         &self,
         user_id: &str,
         server_id: &str,
@@ -49,21 +53,45 @@ impl State {
             .map_err(|e| e.into())
     }
 
+    pub async fn fetch_keywords_for_server(
+        &self,
+        server_id: &str,
+    ) -> Result<HashMap<String, Regex>, Error> {
+        let mut iter = sqlx::query_as::<_, (String, String)>("select user_id, keyword from highlights where server_id=$1")
+            .bind(&server_id)
+            .fetch(&self.pool);
+
+        let mut mapping = HashMap::<String, Vec<String>>::new();
+
+        while let Some((user_id, keyword)) = iter.try_next().await? {
+            mapping.entry(user_id).or_default().push(keyword)
+        };
+
+        Ok(mapping
+            .into_iter()
+            .map(|(user_id, keywords)| {
+                let regex = Regex::new(&keywords.join("|")).unwrap();
+
+                (user_id, regex)
+            })
+            .collect()
+        )
+    }
+
     pub async fn get_keywords(
         &self,
-        user_id: String,
         server_id: String,
-    ) -> Result<Vec<String>, Error> {
+    ) -> Result<HashMap<String, Regex>, Error> {
         let mut lock = self.cached_keywords.lock().await;
 
-        if let Some(value) = lock.get(&(user_id.clone(), server_id.clone())) {
+        if let Some(value) = lock.get(&server_id) {
             return Ok(value.clone());
         } else {
-            let highlights = self.fetch_keywords(&user_id, &server_id).await?;
+            let keywords = self.fetch_keywords_for_server(&server_id).await?;
 
-            lock.put((user_id, server_id), highlights.clone());
+            lock.put(server_id, keywords.clone());
 
-            Ok(highlights)
+            Ok(keywords)
         }
     }
 
@@ -73,17 +101,20 @@ impl State {
         server_id: String,
         keyword: String,
     ) -> Result<(), Error> {
+        sqlx::query("insert into highlights (user_id, server_id, keyword) values ($1, $2, $3)")
+            .bind(&user_id)
+            .bind(&server_id)
+            .bind(&keyword)
+            .execute(&self.pool)
+            .await?;
+
         let mut lock = self.cached_keywords.lock().await;
 
-        if let Some(values) = lock.get_mut(&(user_id.clone(), server_id.clone())) {
-            values.push(keyword);
-        } else {
-            let mut highlights = self.fetch_keywords(&user_id, &server_id).await?;
-
-            highlights.push(keyword);
-
-            lock.put((user_id, server_id), highlights.clone());
-        }
+        if let Some(values) = lock.get_mut(&server_id) {
+            if let Some(regex) = values.get_mut(&user_id) {
+                *regex = Regex::new(&format!("{}|{keyword}", regex.as_str())).unwrap()
+            }
+        };
 
         Ok(())
     }

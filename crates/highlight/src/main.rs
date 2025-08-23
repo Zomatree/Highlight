@@ -14,7 +14,12 @@ async fn main() {
         .with_static_prefix(&state.config.bot.prefix)
         .register(commands::commands());
 
-    let client = Client::new(events::Events(commands), &state.config.revolt.api).await;
+    let events = events::Events {
+        commands,
+        state: state.clone()
+    };
+
+    let client = Client::new(events, &state.config.revolt.api).await;
 
     client.run(&state.config.bot.token).await;
 }

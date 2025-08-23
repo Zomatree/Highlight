@@ -1,7 +1,9 @@
-#[derive(Debug)]
+use std::sync::Arc;
+
+#[derive(Debug, Clone)]
 pub enum Error {
     RevoltError(revolt::Error),
-    PgError(sqlx::Error),
+    PgError(Arc<sqlx::Error>),
     NotInServer
 }
 
@@ -13,6 +15,6 @@ impl From<revolt::Error> for Error {
 
 impl From<sqlx::Error> for Error {
     fn from(value: sqlx::Error) -> Self {
-        Self::PgError(value)
+        Self::PgError(Arc::new(value))
     }
 }

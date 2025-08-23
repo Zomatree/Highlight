@@ -6,6 +6,7 @@ pub mod events;
 pub mod http;
 pub mod cache;
 pub mod websocket;
+pub mod waiters;
 
 pub use client::Client;
 pub use error::Error;

@@ -1677,11 +1677,13 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "lru 0.16.0",
+ "regex",
  "revolt",
  "serde",
  "sqlx",
  "tokio 1.47.1",
  "toml 0.9.5",
+ "ulid 1.2.1",
 ]
 
 [[package]]
@@ -3479,6 +3481,8 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "futures",
+ "rand 0.8.5",
+ "regex",
  "reqwest 0.12.23",
  "revolt-database",
  "revolt-macros",

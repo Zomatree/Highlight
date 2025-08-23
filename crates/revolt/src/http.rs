@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use futures::TryFutureExt;
 use reqwest::{Client, Method, RequestBuilder};
+use revolt_models::v0::{Channel, User};
 use serde::{Deserialize, Serialize};
 
-use crate::{builders::send_message::SendMessageBuilder, error::Error};
+use crate::{builders::{fetch_messages::FetchMessagesBuilder, send_message::SendMessageBuilder}, error::Error};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct CaptchaFeature {
@@ -87,6 +90,23 @@ impl HttpClient {
     pub fn send_message<'a>(&'a self, channel_id: &'a str) -> SendMessageBuilder<'a> {
         SendMessageBuilder::new(self, channel_id)
     }
+
+
+    pub async fn get_user(&self, user_id: &str) -> Result<User, Error> {
+        self.request(Method::GET, format!("/users/{user_id}"))
+            .response()
+            .await
+    }
+
+    pub fn fetch_messages<'a>(&'a self, channel_id: &'a str) -> FetchMessagesBuilder<'a> {
+        FetchMessagesBuilder::new(self, channel_id)
+    }
+
+    pub async fn open_dm(&self, user_id: &str) -> Result<Channel, Error> {
+        self.request(Method::GET, format!("/users/{user_id}/dm"))
+            .response()
+            .await
+    }
 }
 
 pub struct HttpRequest {
@@ -100,16 +120,22 @@ impl HttpRequest {
         self
     }
 
+    pub fn query<I: Serialize>(mut self, query: &I) -> HttpRequest {
+        self.builder = self.builder.query(query);
+
+        self
+    }
+
     pub async fn response<O: for<'a> Deserialize<'a>>(self) -> Result<O, Error> {
         self.builder
             .send()
             .and_then(|body| body.json())
-            .map_err(Error::HttpError)
+            .map_err(|e| Error::HttpError(Arc::new(e)))
             .await
     }
 
     pub async fn send(self) -> Result<(), Error> {
-        self.builder.send().await.map_err(Error::HttpError)?;
+        self.builder.send().await.map_err(|e| Error::HttpError(Arc::new(e)))?;
 
         Ok(())
     }

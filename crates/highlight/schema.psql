@@ -7,3 +7,12 @@ create table if not exists highlights (
 );
 
 create index if not exists highlights_user_id_index on highlights (user_id, server_id);
+
+create table if not exists blocks (
+    user_id text not null,
+    blocked_user text not null,
+
+    unique (user_id, blocked_user)
+)
+
+create index if not exists blocked_user_id on blocks (user_id);

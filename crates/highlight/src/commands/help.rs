@@ -9,8 +9,8 @@ use crate::{Error, State};
     state = State,
     description = "Shows all commands"
 )]
-pub async fn help(ctx: &Context<'_, Error, State>) -> Result<(), Error> {
-    let commands = ctx.commands.values()
+pub async fn help(ctx: &Context<Error, State>) -> Result<(), Error> {
+    let commands = ctx.commands.read().await.values()
         .map(|command| format!("- {} - {}", command.name.clone(), command.description.as_ref().unwrap()))
         .collect::<Vec<_>>()
         .join("\n");

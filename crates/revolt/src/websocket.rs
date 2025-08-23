@@ -1,9 +1,9 @@
-use futures::{SinkExt, StreamExt, lock::Mutex};
+use futures::{SinkExt, StreamExt};
 use revolt_database::events::client::{EventV1, Ping};
 use serde::Serialize;
-use std::{sync::Arc, time::Duration};
+use std::{sync::{Arc}, time::Duration};
 use tokio::{
-    sync::{RwLock, mpsc::UnboundedSender},
+    sync::{mpsc::UnboundedSender, Mutex, RwLock},
     time::sleep,
 };
 use tokio_tungstenite::connect_async;
