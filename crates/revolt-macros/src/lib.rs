@@ -1,9 +1,10 @@
+use darling::FromMeta;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
-    parse::Parser, parse_macro_input, punctuated::Punctuated, ExprPath, spanned::Spanned, Expr, ExprArray, FnArg, ItemFn, Pat, Path, Token, Type
+    Expr, ExprArray, ExprPath, FnArg, ItemFn, Pat, Path, Token, Type, parse::Parser,
+    parse_macro_input, punctuated::Punctuated, spanned::Spanned,
 };
-use darling::FromMeta;
 
 #[derive(FromMeta)]
 #[darling(derive_syn_parse)]
@@ -52,17 +53,23 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // panic!("{:?}", &info.children.elems);
 
-    let children = info.children.iter().map(|array| {
-        array.elems.iter().map(|child| {
-            let Expr::Path(path) = &child else { panic!("Not a path to a command") };
+    let children = info
+        .children
+        .iter()
+        .map(|array| {
+            array.elems.iter().map(|child| {
+                let Expr::Path(path) = &child else {
+                    panic!("Not a path to a command")
+                };
 
-            quote_spanned!(path.span() => {
-                let _struct = #path {};
-                let command = _struct.into_command();
-                children.insert(command.name.clone(), command);
+                quote_spanned!(path.span() => {
+                    let _struct = #path {};
+                    let command = _struct.into_command();
+                    children.insert(command.name.clone(), command);
+                })
             })
         })
-    }).flatten();
+        .flatten();
 
     quote! {
         #func

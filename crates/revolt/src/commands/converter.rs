@@ -1,21 +1,27 @@
-use std::{sync::LazyLock, fmt::Debug};
+use std::{fmt::Debug, sync::LazyLock};
 
 use async_trait::async_trait;
-use revolt_models::v0::User;
 use regex::Regex;
+use revolt_models::v0::User;
 
-use crate::{commands::Context, Error};
+use crate::{Error, commands::Context};
 
-static ID_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new("^([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})$").unwrap());
-static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new("^<@([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})>$").unwrap());
+static ID_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})$").unwrap());
+static USER_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^<@([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})>$").unwrap());
 
 #[async_trait]
-pub trait Converter<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync>: Sized {
+pub trait Converter<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync>:
+    Sized
+{
     async fn convert(context: &mut Context<E, S>, input: String) -> Result<Self, E>;
 }
 
 #[async_trait]
-impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S> for u32 {
+impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
+    for u32
+{
     async fn convert(context: &mut Context<E, S>, input: String) -> Result<Self, E> {
         input
             .parse::<u32>()
@@ -24,16 +30,23 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
 }
 
 #[async_trait]
-impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S> for String {
+impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
+    for String
+{
     async fn convert(context: &mut Context<E, S>, input: String) -> Result<Self, E> {
         Ok(input)
     }
 }
 
 #[async_trait]
-impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S> for User {
+impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
+    for User
+{
     async fn convert(context: &mut Context<E, S>, input: String) -> Result<Self, E> {
-        if let Some(captures) = USER_REGEX.captures(&input).or_else(|| ID_REGEX.captures(&input)) {
+        if let Some(captures) = USER_REGEX
+            .captures(&input)
+            .or_else(|| ID_REGEX.captures(&input))
+        {
             let id = captures.get(1).unwrap().as_str();
 
             let cache = context.cache.read().await;
@@ -41,13 +54,13 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
             drop(cache);
 
             if let Some(user) = user {
-                return Ok(user.clone())
+                return Ok(user.clone());
             } else {
                 let mut cache = context.cache.write().await;
-                let user = context.http.get_user(id).await?;
+                let user = context.http.fetch_user(id).await?;
                 cache.users.insert(user.id.clone(), user.clone());
 
-                return Ok(user)
+                return Ok(user);
             };
         };
 
@@ -58,7 +71,9 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
 pub struct ConsumeRest(pub String);
 
 #[async_trait]
-impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S> for ConsumeRest {
+impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
+    for ConsumeRest
+{
     async fn convert(context: &mut Context<E, S>, input: String) -> Result<Self, E> {
         let mut output = input;
 

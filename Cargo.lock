@@ -3487,6 +3487,7 @@ dependencies = [
  "revolt-database",
  "revolt-macros",
  "revolt-models",
+ "revolt-permissions",
  "serde",
  "serde_json",
  "tokio 1.47.1",

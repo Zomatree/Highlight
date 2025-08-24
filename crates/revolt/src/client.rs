@@ -1,18 +1,27 @@
 use std::{fmt::Debug, marker::PhantomData, panic::AssertUnwindSafe, sync::Arc};
 
 use async_recursion::async_recursion;
-use futures::{future::join, FutureExt};
+use futures::{FutureExt, future::join};
 use revolt_database::events::client::EventV1;
 use tokio::sync::{
-    mpsc::{self, UnboundedReceiver}, RwLock
+    RwLock,
+    mpsc::{self, UnboundedReceiver},
 };
 
 use crate::{
-    cache::GlobalCache, events::{update_state, Context, EventHandler}, http::HttpClient, waiters::Waiters, websocket::run, Error
+    Error,
+    cache::GlobalCache,
+    events::{Context, EventHandler, update_state},
+    http::HttpClient,
+    waiters::Waiters,
+    websocket::run,
 };
 
 #[derive(Clone)]
-pub struct Client<H: EventHandler<E> + Clone + Send + Sync + 'static, E: From<Error> + Clone + Debug + Send + Sync + 'static> {
+pub struct Client<
+    H: EventHandler<E> + Clone + Send + Sync + 'static,
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+> {
     pub state: Arc<RwLock<GlobalCache>>,
     pub handler: Arc<H>,
     pub http: HttpClient,
@@ -20,7 +29,11 @@ pub struct Client<H: EventHandler<E> + Clone + Send + Sync + 'static, E: From<Er
     _e: PhantomData<E>,
 }
 
-impl<H: EventHandler<E> + Clone + Send + Sync + 'static, E: From<Error> + Clone + Debug + Send + Sync + 'static> Client<H, E> {
+impl<
+    H: EventHandler<E> + Clone + Send + Sync + 'static,
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+> Client<H, E>
+{
     pub async fn new(handler: H, base_url: impl Into<String>) -> Self {
         let http = HttpClient::new(base_url.into(), None);
 
@@ -66,7 +79,7 @@ impl<H: EventHandler<E> + Clone + Send + Sync + 'static, E: From<Error> + Clone 
         let context = Context {
             cache: self.state.clone(),
             http: self.http.clone(),
-            waiters: self.waiters.clone()
+            waiters: self.waiters.clone(),
         };
 
         let wrapper = AssertUnwindSafe(async {
@@ -81,11 +94,7 @@ impl<H: EventHandler<E> + Clone + Send + Sync + 'static, E: From<Error> + Clone 
     }
 
     #[async_recursion]
-    pub async fn call_event(
-        &self,
-        context: Context,
-        event: EventV1,
-    ) -> Result<(), E> {
+    pub async fn call_event(&self, context: Context, event: EventV1) -> Result<(), E> {
         match event {
             EventV1::Bulk { v } => {
                 for e in v {
@@ -100,8 +109,25 @@ impl<H: EventHandler<E> + Clone + Send + Sync + 'static, E: From<Error> + Clone 
                 self.waiters.invoke_message_waiters(&message).await?;
 
                 self.handler.message(context, message).await
-            },
-            EventV1::ChannelStartTyping { id, user } => self.handler.start_typing(context, id, user).await,
+            }
+            EventV1::ChannelStartTyping { id, user } => {
+                self.waiters
+                    .invoke_typing_start_waiters(&(id.clone(), user.clone()))
+                    .await?;
+
+                self.handler.start_typing(context, id, user).await
+            }
+            EventV1::ChannelStopTyping { id, user } => {
+                self.handler.stop_typing(context, id, user).await
+            }
+            EventV1::ServerMemberJoin { id, user } => {
+                self.handler.server_member_join(context, id, user).await
+            }
+            EventV1::ServerMemberLeave { id, user, reason } => {
+                self.handler
+                    .server_member_leave(context, id, user, reason)
+                    .await
+            }
             _ => Ok(()),
         }
     }

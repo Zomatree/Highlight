@@ -1,11 +1,11 @@
+mod checks;
 mod config;
+mod database;
 mod error;
 mod state;
-mod database;
-mod checks;
 
-pub use error::*;
-pub use state::*;
+pub use checks::*;
 pub use config::*;
 pub use database::*;
-pub use checks::*;
+pub use error::*;
+pub use state::*;

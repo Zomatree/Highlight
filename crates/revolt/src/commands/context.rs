@@ -4,20 +4,22 @@ use revolt_models::v0::Message;
 use tokio::sync::RwLock;
 
 use crate::{
-    Error,
-    Context as MessageContext,
+    Context as MessageContext, Error,
     commands::{Command, Words},
 };
 
 #[derive(Debug)]
-pub struct Context<E: From<Error> + Clone + Debug + Send + Sync + 'static, S: Debug + Clone + Send + Sync> {
+pub struct Context<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync,
+> {
     pub inner: MessageContext,
     pub prefix: String,
     pub command: Option<Command<E, S>>,
     pub message: Message,
     pub state: S,
     pub words: Words,
-    pub commands: Arc<RwLock<HashMap<String, Command<E, S>>>>
+    pub commands: Arc<RwLock<HashMap<String, Command<E, S>>>>,
 }
 
 impl<E: From<Error> + Clone + Debug + Send + Sync + 'static, S: Debug + Clone + Send + Sync> Deref

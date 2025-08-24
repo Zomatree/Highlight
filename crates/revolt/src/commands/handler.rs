@@ -1,10 +1,12 @@
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use crate::{
+    Context as MessageContext, Error,
+    commands::{Command, CommandEventHandler, Context, Words},
+};
 use async_recursion::async_recursion;
-use futures::{future::BoxFuture, FutureExt};
+use futures::{FutureExt, future::BoxFuture};
 use revolt_models::v0::Message;
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio::sync::RwLock;
-use crate::{commands::{Command, CommandEventHandler, Context, Words}, Context as MessageContext, Error};
-
 
 #[derive(Clone)]
 pub struct CommandHandler<
@@ -12,11 +14,13 @@ pub struct CommandHandler<
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
     S: Debug + Clone + Send + Sync,
 > {
-    prefix: Arc<Box<
-        dyn for<'a> Fn(&'a MessageContext, &'a Message) -> BoxFuture<'a, Result<Vec<String>, E>>
-            + Send
-            + Sync,
-    >>,
+    prefix: Arc<
+        Box<
+            dyn for<'a> Fn(&'a MessageContext, &'a Message) -> BoxFuture<'a, Result<Vec<String>, E>>
+                + Send
+                + Sync,
+        >,
+    >,
     commands: Arc<RwLock<HashMap<String, Command<E, S>>>>,
     event_handler: H,
     state: S,
@@ -71,19 +75,29 @@ impl<
 
     pub fn register(self, commands: Vec<Command<E, S>>) -> Self {
         for command in commands {
-            self.commands.try_write().unwrap().insert(command.name.clone(), command);
+            self.commands
+                .try_write()
+                .unwrap()
+                .insert(command.name.clone(), command);
         }
 
         self
     }
 
     #[async_recursion]
-    pub async fn find_command_from_words(&self, current_command: Option<&Command<E, S>>, words: &mut Words) -> Option<Command<E, S>> {
+    pub async fn find_command_from_words(
+        &self,
+        current_command: Option<&Command<E, S>>,
+        words: &mut Words,
+    ) -> Option<Command<E, S>> {
         let next_word = words.current()?;
 
         let commands = self.commands.read().await;
 
-        if let Some(command) = current_command.and_then(|command| command.children.get(&next_word)).or_else(|| commands.get(&next_word)) {
+        if let Some(command) = current_command
+            .and_then(|command| command.children.get(&next_word))
+            .or_else(|| commands.get(&next_word))
+        {
             println!("{command:?}");
             words.advance();
 
@@ -147,7 +161,7 @@ impl<
                 self.event_handler.error(&mut context, e).await.unwrap();
             };
 
-            return Ok(())
+            return Ok(());
         }
 
         if let Err(e) = self.event_handler.command(&mut context).await {

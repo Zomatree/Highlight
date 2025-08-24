@@ -2,11 +2,15 @@ use std::fmt::Debug;
 
 use async_trait::async_trait;
 
-use crate::{commands::Context, Error};
+use crate::{Error, commands::Context};
 
 #[async_trait]
 #[allow(unused)]
-pub trait CommandEventHandler<E: From<Error> + Clone + Debug + Send + Sync + 'static, S: Debug + Clone + Send + Sync> {
+pub trait CommandEventHandler<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync,
+>
+{
     async fn command(&self, context: &mut Context<E, S>) -> Result<(), E> {
         Ok(())
     }

@@ -16,7 +16,7 @@ async fn main() {
 
     let events = events::Events {
         commands,
-        state: state.clone()
+        state: state.clone(),
     };
 
     let client = Client::new(events, &state.config.revolt.api).await;

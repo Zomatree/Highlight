@@ -18,17 +18,23 @@ type WaiterMap<M> = Arc<Mutex<HashMap<usize, Waiter<M>>>>;
 #[derive(Default, Debug, Clone)]
 pub struct Waiters {
     messages: WaiterMap<Message>,
-    typing_start: WaiterMap<(String, String)>
+    typing_start: WaiterMap<(String, String)>,
 }
 
 impl Waiters {
-    async fn inner_wait<F: Fn(&M) -> bool + Send + Sync + 'static, M: Clone>(&self, waiters: &WaiterMap<M>, check: F, timeout: Option<Duration>) -> Result<M, Error> {
+    async fn inner_wait<F: Fn(&M) -> bool + Send + Sync + 'static, M: Clone>(
+        &self,
+        waiters: &WaiterMap<M>,
+        check: F,
+        timeout: Option<Duration>,
+    ) -> Result<M, Error> {
         let (sender, receiver) = oneshot::channel();
 
         let random_value = random();
 
         {
-            let mut lock: futures::lock::MutexGuard<'_, HashMap<usize, Waiter<M>>> = waiters.lock().await;
+            let mut lock: futures::lock::MutexGuard<'_, HashMap<usize, Waiter<M>>> =
+                waiters.lock().await;
 
             lock.insert(
                 random_value,
@@ -55,7 +61,6 @@ impl Waiters {
         }
 
         response?
-
     }
 
     async fn inner_invoke<M: Clone>(&self, waiters: &WaiterMap<M>, value: &M) -> Result<(), Error> {
@@ -99,7 +104,10 @@ impl Waiters {
         self.inner_wait(&self.typing_start, check, timeout).await
     }
 
-    pub async fn invoke_typing_start_waiters(&self, values: &(String, String)) -> Result<(), Error> {
+    pub async fn invoke_typing_start_waiters(
+        &self,
+        values: &(String, String),
+    ) -> Result<(), Error> {
         self.inner_invoke(&self.typing_start, values).await
     }
 }

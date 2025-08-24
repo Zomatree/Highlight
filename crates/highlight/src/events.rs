@@ -1,46 +1,137 @@
-use std::time::Duration;
+use std::{borrow::Cow, time::Duration};
 
-use revolt::{async_trait, commands::CommandHandler, types::{Channel, Message, SendableEmbed}, Context, EventHandler};
+use revolt::{
+    Context, EventHandler, async_trait,
+    commands::CommandHandler,
+    permissions::{ChannelPermission, calculate_channel_permissions, user_permissions_query},
+    types::{Channel, Message, RemovalIntention, SendableEmbed},
+};
 
 use crate::{Error, State, commands::CommandEvents};
 
 #[derive(Clone)]
 pub struct Events {
     pub commands: CommandHandler<CommandEvents, Error, State>,
-    pub state: State
+    pub state: State,
 }
 
 #[async_trait]
 impl EventHandler<Error> for Events {
     async fn message(&self, ctx: Context, message: Message) -> Result<(), Error> {
-        println!("{message:?}");
-
-
         tokio::spawn({
             let commands = self.commands.clone();
             let context = ctx.clone();
             let message = message.clone();
 
-            async move {
-                commands.process_commands(context, message).await
-            }
+            async move { commands.process_commands(context, message).await }
         });
 
-        let Some(content) = &message.content else { return Ok(()) };
-
-        let server_id = match ctx.cache.read().await.channels.get(&message.channel).unwrap() {
-            Channel::TextChannel { server, .. } | Channel::VoiceChannel { server, .. } => server.clone(),
-            _ => return Ok(())
+        let Some(content) = &message.content else {
+            return Ok(());
         };
 
+        let channel = ctx
+            .cache
+            .read()
+            .await
+            .channels
+            .get(&message.channel)
+            .unwrap()
+            .clone();
+
+        let server_id = match &channel {
+            Channel::TextChannel { server, .. } | Channel::VoiceChannel { server, .. } => {
+                server.clone()
+            }
+            _ => return Ok(()),
+        };
+
+        let server = ctx
+            .cache
+            .read()
+            .await
+            .servers
+            .get(&server_id)
+            .unwrap()
+            .clone();
 
         let regexes = self.state.get_keywords(server_id.clone()).await?;
+        let known_not_in_server = self
+            .state
+            .known_not_in_server
+            .read()
+            .await
+            .get(&server_id)
+            .cloned()
+            .unwrap_or_default();
 
         for (user_id, regex) in regexes {
-            println!("{regex:?}");
+            if known_not_in_server.contains(&user_id) {
+                continue;
+            };
 
-            if &user_id == &message.author {
-                continue
+            let permissions = {
+                let mut cache = ctx.cache.write().await;
+
+                let user = if let Some(user) = cache.users.get(&user_id) {
+                    user.clone()
+                } else if let Ok(user) = ctx.http.fetch_user(&user_id).await {
+                    cache.users.insert(user.id.clone(), user.clone());
+
+                    user.clone()
+                } else {
+                    self.state
+                        .known_not_in_server
+                        .write()
+                        .await
+                        .entry(server_id.clone())
+                        .or_default()
+                        .insert(user_id.clone());
+
+                    continue;
+                };
+
+                let member = if let Some(member) = cache
+                    .members
+                    .get(&server_id)
+                    .as_ref()
+                    .unwrap()
+                    .get(&user_id)
+                {
+                    member.clone()
+                } else if let Ok(member) = ctx.http.fetch_member(&server_id, &user_id).await {
+                    cache
+                        .members
+                        .get_mut(&server_id)
+                        .unwrap()
+                        .insert(user_id.clone(), member.clone());
+
+                    member
+                } else {
+                    self.state
+                        .known_not_in_server
+                        .write()
+                        .await
+                        .entry(server_id.clone())
+                        .or_default()
+                        .insert(user_id.clone());
+
+                    continue;
+                };
+
+                let mut query =
+                    user_permissions_query(&mut cache, ctx.http.clone(), Cow::Owned(user))
+                        .channel(Cow::Borrowed(&channel))
+                        .server(Cow::Borrowed(&server))
+                        .member(Cow::Borrowed(&member));
+
+                calculate_channel_permissions(&mut query).await
+            };
+
+            if &user_id == &message.author
+                || !permissions.has(ChannelPermission::ViewChannel as u64)
+            {
+                continue;
             };
 
             tokio::spawn({
@@ -48,18 +139,33 @@ impl EventHandler<Error> for Events {
                 let channel_id = message.channel.clone();
                 let message_id = message.id.clone();
                 let content = content.clone();
+                let message_author = message.author.clone();
 
                 let cache = ctx.cache.read().await;
-                let server_name =  cache.servers.get(&server_id).unwrap().name.clone();
-                let channel_name = cache.channels.get(&channel_id).unwrap().name().unwrap().to_string();
+                let server_name = cache.servers.get(&server_id).unwrap().name.clone();
+                let channel_name = cache
+                    .channels
+                    .get(&channel_id)
+                    .unwrap()
+                    .name()
+                    .unwrap()
+                    .to_string();
                 drop(cache);
 
                 let waiters = ctx.waiters.clone();
                 let http = ctx.http.clone();
+                let state = self.state.clone();
 
                 async move {
                     if let Some(res) = regex.find(&content) {
-                        println!("{res:?}");
+                        if state
+                            .fetch_blocked_users(user_id.clone())
+                            .await
+                            .unwrap()
+                            .contains(&message_author)
+                        {
+                            return;
+                        };
 
                         let msg_fut = waiters.wait_for_message(
                             {
@@ -68,7 +174,7 @@ impl EventHandler<Error> for Events {
 
                                 move |msg| &msg.channel == &channel_id && msg.author == user_id
                             },
-                            Some(Duration::from_secs(10))
+                            Some(Duration::from_secs(10)),
                         );
 
                         let typing_fut = waiters.wait_for_typing_start(
@@ -76,9 +182,12 @@ impl EventHandler<Error> for Events {
                                 let channel_id = channel_id.clone();
                                 let user_id = user_id.clone();
 
-                                move |(typing_user_id, typing_channel_id)| typing_channel_id == &channel_id && typing_user_id == &user_id
+                                move |(typing_user_id, typing_channel_id)| {
+                                    typing_channel_id == &channel_id && typing_user_id == &user_id
+                                }
                             },
-                            Some(Duration::from_secs(10)));
+                            Some(Duration::from_secs(10)),
+                        );
 
                         let should_cancel = tokio::select! {
                             msg = msg_fut => { msg.is_ok() },
@@ -86,10 +195,11 @@ impl EventHandler<Error> for Events {
                         };
 
                         if should_cancel {
-                            return
+                            return;
                         };
 
-                        let mut messages = http.fetch_messages(&channel_id)
+                        let mut messages = http
+                            .fetch_messages(&channel_id)
                             .limit(5)
                             .nearby(message_id.clone())
                             .build_with_users()
@@ -98,10 +208,13 @@ impl EventHandler<Error> for Events {
 
                         messages.messages.sort_by(|a, b| a.id.cmp(&b.id));
 
-                        let jump_link = format!("https://app.revolt.chat/server/{server_id}/channel/{channel_id}/{message_id}");
+                        let jump_link = format!(
+                            "https://app.revolt.chat/server/{server_id}/channel/{channel_id}/{message_id}"
+                        );
                         let keyword = res.as_str();
 
-                        let built_messages = messages.messages
+                        let built_messages = messages
+                            .messages
                             .iter()
                             .map(|message| {
                                 let (is_main_message, content) = if &message.id == &message_id {
@@ -115,10 +228,16 @@ impl EventHandler<Error> for Events {
                                     (false, message.content.clone().unwrap_or_default())
                                 };
 
-                                let created_at = ulid::Ulid::from_string(&message.id).unwrap().timestamp_ms() / 1000;
+                                let created_at =
+                                    ulid::Ulid::from_string(&message.id).unwrap().timestamp_ms()
+                                        / 1000;
                                 let timestamp = format!("<t:{created_at}:T>");
 
-                                let user = messages.users.iter().find(|user| &user.id == &message.author).unwrap();
+                                let user = messages
+                                    .users
+                                    .iter()
+                                    .find(|user| &user.id == &message.author)
+                                    .unwrap();
 
                                 let username = if is_main_message {
                                     format!("**{}#{}**", user.username, user.discriminator)
@@ -131,9 +250,7 @@ impl EventHandler<Error> for Events {
                             .collect::<Vec<_>>()
                             .join("\n");
 
-                        let dm_channel = http.open_dm(&user_id)
-                            .await
-                            .unwrap();
+                        let dm_channel = http.open_dm(&user_id).await.unwrap();
 
                         http.send_message(dm_channel.id())
                             .content(format!("In [{server_name} › {channel_name}]({jump_link}), you where mentioned with **{keyword}**"))
@@ -148,8 +265,46 @@ impl EventHandler<Error> for Events {
                     }
                 }
             });
-
         }
+
+        Ok(())
+    }
+
+    async fn server_member_join(
+        &self,
+        ctx: Context,
+        server_id: String,
+        user_id: String,
+    ) -> Result<(), Error> {
+        if let Some(set) = self
+            .state
+            .known_not_in_server
+            .write()
+            .await
+            .get_mut(&server_id)
+        {
+            set.remove(&user_id);
+        };
+
+        Ok(())
+    }
+
+    async fn server_member_leave(
+        &self,
+        ctx: Context,
+        server_id: String,
+        user_id: String,
+        reason: RemovalIntention,
+    ) -> Result<(), Error> {
+        if let Some(set) = self
+            .state
+            .known_not_in_server
+            .write()
+            .await
+            .get_mut(&server_id)
+        {
+            set.insert(user_id);
+        };
 
         Ok(())
     }

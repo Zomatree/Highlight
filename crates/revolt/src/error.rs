@@ -7,5 +7,5 @@ pub enum Error {
     ConverterError(String),
     Timeout,
     BrokenChannel,
-    InternalError
+    InternalError,
 }

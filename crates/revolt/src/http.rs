@@ -2,10 +2,13 @@ use std::sync::Arc;
 
 use futures::TryFutureExt;
 use reqwest::{Client, Method, RequestBuilder};
-use revolt_models::v0::{Channel, User};
+use revolt_models::v0::{Channel, Member, User};
 use serde::{Deserialize, Serialize};
 
-use crate::{builders::{fetch_messages::FetchMessagesBuilder, send_message::SendMessageBuilder}, error::Error};
+use crate::{
+    builders::{fetch_messages::FetchMessagesBuilder, send_message::SendMessageBuilder},
+    error::Error,
+};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct CaptchaFeature {
@@ -91,8 +94,7 @@ impl HttpClient {
         SendMessageBuilder::new(self, channel_id)
     }
 
-
-    pub async fn get_user(&self, user_id: &str) -> Result<User, Error> {
+    pub async fn fetch_user(&self, user_id: &str) -> Result<User, Error> {
         self.request(Method::GET, format!("/users/{user_id}"))
             .response()
             .await
@@ -106,6 +108,15 @@ impl HttpClient {
         self.request(Method::GET, format!("/users/{user_id}/dm"))
             .response()
             .await
+    }
+
+    pub async fn fetch_member(&self, server_id: &str, user_id: &str) -> Result<Member, Error> {
+        self.request(
+            Method::GET,
+            format!("/servers/{server_id}/members/{user_id}"),
+        )
+        .response()
+        .await
     }
 }
 
@@ -135,7 +146,10 @@ impl HttpRequest {
     }
 
     pub async fn send(self) -> Result<(), Error> {
-        self.builder.send().await.map_err(|e| Error::HttpError(Arc::new(e)))?;
+        self.builder
+            .send()
+            .await
+            .map_err(|e| Error::HttpError(Arc::new(e)))?;
 
         Ok(())
     }

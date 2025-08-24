@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone)]
 pub struct Words {
     values: Vec<String>,

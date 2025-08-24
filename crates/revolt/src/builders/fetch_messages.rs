@@ -1,6 +1,6 @@
 use reqwest::Method;
 use revolt_models::v0::{
-    BulkMessageResponse, Member, Message, MessageSort, OptionsQueryMessages, User
+    BulkMessageResponse, Member, Message, MessageSort, OptionsQueryMessages, User,
 };
 
 use crate::{HttpClient, error::Error};
@@ -15,7 +15,7 @@ pub struct MessagesWithUsers {
 pub struct FetchMessagesBuilder<'a> {
     http: &'a HttpClient,
     channel_id: &'a str,
-    data: OptionsQueryMessages
+    data: OptionsQueryMessages,
 }
 
 impl<'a> FetchMessagesBuilder<'a> {
@@ -29,8 +29,8 @@ impl<'a> FetchMessagesBuilder<'a> {
                 after: None,
                 sort: None,
                 nearby: None,
-                include_users: None
-            }
+                include_users: None,
+            },
         }
     }
 
@@ -80,11 +80,16 @@ impl<'a> FetchMessagesBuilder<'a> {
     pub async fn build_with_users(self) -> Result<MessagesWithUsers, Error> {
         let bulk = self.build_raw(true).await?;
 
-        if let BulkMessageResponse::MessagesAndUsers { messages, users, members } = bulk {
+        if let BulkMessageResponse::MessagesAndUsers {
+            messages,
+            users,
+            members,
+        } = bulk
+        {
             Ok(MessagesWithUsers {
                 messages,
                 users,
-                members: members.unwrap_or_default()
+                members: members.unwrap_or_default(),
             })
         } else {
             Err(Error::InternalError)

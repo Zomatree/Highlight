@@ -3,7 +3,8 @@ use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use async_trait::async_trait;
 use revolt_database::events::client::EventV1;
 use revolt_models::v0::{
-    Channel, FieldsChannel, FieldsMessage, FieldsUser, Message, RelationshipStatus,
+    Channel, FieldsChannel, FieldsMessage, FieldsUser, Member, Message, RelationshipStatus,
+    RemovalIntention,
 };
 use tokio::sync::{Mutex, RwLock};
 
@@ -35,8 +36,6 @@ macro_rules! update_multi_enum_partial {
         $(update_enum_partial!($( $($optional)? optional,)? $value, $data, $key, ($($varient),+)));+
     };
 }
-
-
 
 pub fn update_state(event: EventV1, state: &mut GlobalCache) {
     match event {
@@ -279,6 +278,9 @@ pub fn update_state(event: EventV1, state: &mut GlobalCache) {
                 }
             }
         }
+        EventV1::ServerMemberJoin { id, user } => {
+            // TODO insert member when update is out
+        }
         event => {
             println!("Unhandled Event {:?}", event);
         }
@@ -289,7 +291,7 @@ pub fn update_state(event: EventV1, state: &mut GlobalCache) {
 pub struct Context {
     pub cache: Arc<RwLock<GlobalCache>>,
     pub http: HttpClient,
-    pub waiters: Waiters
+    pub waiters: Waiters,
 }
 
 #[async_trait]
@@ -307,7 +309,40 @@ pub trait EventHandler<E: Debug + Send + Sync + 'static>: Sized {
         Ok(())
     }
 
-    async fn start_typing(&self, context: Context, channel_id: String, user_id: String) -> Result<(), E> {
+    async fn start_typing(
+        &self,
+        context: Context,
+        channel_id: String,
+        user_id: String,
+    ) -> Result<(), E> {
+        Ok(())
+    }
+
+    async fn stop_typing(
+        &self,
+        context: Context,
+        channel_id: String,
+        user_id: String,
+    ) -> Result<(), E> {
+        Ok(())
+    }
+
+    async fn server_member_join(
+        &self,
+        context: Context,
+        server_id: String,
+        user_id: String,
+    ) -> Result<(), E> {
+        Ok(())
+    }
+
+    async fn server_member_leave(
+        &self,
+        context: Context,
+        server_id: String,
+        user_id: String,
+        reason: RemovalIntention,
+    ) -> Result<(), E> {
         Ok(())
     }
 
