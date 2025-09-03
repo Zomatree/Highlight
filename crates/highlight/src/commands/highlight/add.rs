@@ -32,5 +32,6 @@ async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> R
 
 pub fn command() -> Command<Error, State> {
     Command::new("add", add)
-        .description("Adds a highlight keyword")
+        .description("Adds a highlight keyword.")
+        .signature("<keyword>")
 }

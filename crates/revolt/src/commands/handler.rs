@@ -21,7 +21,7 @@ pub struct CommandHandler<
                 + Sync,
         >,
     >,
-    commands: Arc<RwLock<HashMap<String, Command<E, S>>>>,
+    commands: Commands<E, S>,
     event_handler: H,
     state: S,
 }
@@ -34,8 +34,8 @@ impl<
 {
     pub fn new(event_handler: H, state: S) -> Self {
         Self {
-            prefix: Arc::new(Box::new(|_, _| panic!("No prefix"))),
-            commands: Arc::new(RwLock::new(HashMap::new())),
+            prefix: Arc::new(Box::new(|_, _| async move { Ok(vec![]) }.boxed())),
+            commands: Commands::new(),
             event_handler,
             state,
         }
@@ -75,48 +75,10 @@ impl<
 
     pub fn register(self, commands: Vec<Command<E, S>>) -> Self {
         for command in commands {
-            self.commands
-                .try_write()
-                .unwrap()
-                .insert(command.name.clone(), command);
+            self.commands.try_register(command)
         }
 
         self
-    }
-
-    #[async_recursion]
-    pub async fn find_command_from_words(
-        &self,
-        current_command: Option<&Command<E, S>>,
-        words: &Words,
-    ) -> Option<Command<E, S>> {
-        let next_word = words.current()?;
-
-        let commands = self.commands.read().await;
-
-        if let Some(command) = current_command
-            .and_then(|command| command.children.get(&next_word))
-            .or_else(|| commands.get(&next_word))
-        {
-            words.advance();
-
-            if !command.children.is_empty() {
-                let subcommand = self.find_command_from_words(Some(command), words).await;
-
-                match subcommand {
-                    Some(sub) => Some(sub),
-                    None => {
-                        words.undo();
-
-                        Some(command.clone())
-                    }
-                }
-            } else {
-                Some(command.clone())
-            }
-        } else {
-            None
-        }
     }
 
     pub async fn process_commands(
@@ -147,7 +109,7 @@ impl<
         let cmd_context = Context::<E, S> {
             inner: context,
             prefix: prefix,
-            command: self.find_command_from_words(None, &words).await,
+            command: self.commands.find_command_from_words(None, &words).await,
             message: message.clone(),
             state: self.state.clone(),
             words,
@@ -177,5 +139,124 @@ impl<
         }
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Commands<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> {
+    mapping: Arc<RwLock<HashMap<String, Command<E, S>>>>
+}
+
+impl<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> Commands<E, S> {
+    pub fn new() -> Self {
+        Self {
+            mapping: Arc::new(RwLock::new(HashMap::new()))
+        }
+    }
+
+    pub fn try_register(&self, command: Command<E, S>) {
+        let mut mapping = self
+            .mapping
+            .try_write()
+            .unwrap();
+
+        mapping.insert(command.name.clone(), command.clone());
+
+        for alias in command.aliases.clone() {
+            mapping.insert(alias, command.clone());
+        };
+    }
+
+    pub async fn register(&self, command: Command<E, S>) {
+        let mut mapping = self
+            .mapping
+            .write()
+            .await;
+
+        mapping.insert(command.name.clone(), command.clone());
+
+        for alias in command.aliases.clone() {
+            mapping.insert(alias, command.clone());
+        };
+    }
+
+    #[async_recursion]
+    pub async fn find_command_from_words(
+        &self,
+        current_command: Option<&Command<E, S>>,
+        words: &Words,
+    ) -> Option<Command<E, S>> {
+        let next_word = words.current()?;
+
+        let commands = self.mapping.read().await;
+
+        if let Some(command) = current_command
+            .and_then(|command| command.children.get(&next_word))
+            .or_else(|| commands.get(&next_word))
+        {
+            words.advance();
+
+            if !command.children.is_empty() {
+                let subcommand = self.find_command_from_words(Some(command), words).await;
+
+                match subcommand {
+                    Some(sub) => Some(sub),
+                    None => {
+                        words.undo();
+
+                        Some(command.clone())
+                    }
+                }
+            } else {
+                Some(command.clone())
+            }
+        } else {
+            None
+        }
+    }
+
+    pub async fn get_command_from_slice(&self, words: &[String]) -> Option<Command<E, S>> {
+        let mapping = self.mapping.read().await;
+
+        let mut current_command: Option<Command<E, S>> = None;
+
+        for word in words {
+            if let Some(command) = current_command
+                .as_ref()
+                .and_then(|command| command.get_command(word))
+                .or_else(|| mapping.get(word).cloned())
+            {
+                current_command = Some(command)
+            } else {
+                break
+            }
+        }
+
+        return current_command
+    }
+
+    pub async fn get_command(&self, name: &str) -> Option<Command<E, S>> {
+        self.mapping
+            .read()
+            .await
+            .get(name)
+            .cloned()
+    }
+
+    pub async fn get_commands(&self) -> Vec<Command<E, S>> {
+        self.mapping
+            .read()
+            .await
+            .clone()
+            .into_iter()
+            .filter(|(name, command)| name == &command.name)
+            .map(|(_, command)| command)
+            .collect()
     }
 }

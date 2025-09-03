@@ -19,7 +19,9 @@ pub struct Command<
     pub handle: Arc<Box<dyn CommandHandle<(), E, S>>>,
     pub children: HashMap<String, Command<E, S>>,
     pub checks: Vec<Arc<dyn Check<E, S>>>,
+    pub aliases: Vec<String>,
     pub description: Option<String>,
+    pub signature: Option<String>
 }
 
 impl<E: From<Error> + Clone + Debug + Send + Sync + 'static, S: Debug + Clone + Send + Sync + 'static>
@@ -47,12 +49,18 @@ impl<
             handle: Arc::new(Box::new(erased)),
             children: HashMap::new(),
             checks: Vec::new(),
+            aliases: Vec::new(),
             description: None,
+            signature: None,
         }
     }
 
     pub fn child(mut self, command: Self) -> Self {
-        self.children.insert(command.name.clone(), command);
+        self.children.insert(command.name.clone(), command.clone());
+
+        for alias in command.aliases.clone() {
+            self.children.insert(alias, command.clone());
+        }
 
         self
     }
@@ -63,10 +71,35 @@ impl<
         self
     }
 
+    pub fn signature<I: Into<String>>(mut self, signature: I) -> Self {
+        self.signature = Some(signature.into());
+
+        self
+    }
+
     pub fn check<C: Check<E, S>>(mut self, check: C) -> Self {
         self.checks.push(Arc::new(check));
 
         self
+    }
+
+    pub fn alias<I: Into<String>>(mut self, alias: I) -> Self {
+        self.aliases.push(alias.into());
+
+        self
+    }
+
+    pub fn children(&self) -> Vec<Command<E, S>> {
+        self.children
+            .clone()
+            .into_iter()
+            .filter(|(name, command)| name == &command.name)
+            .map(|(_, command)| command)
+            .collect()
+    }
+
+    pub fn get_command(&self, name: &str) -> Option<Command<E, S>> {
+        self.children.get(name).cloned()
     }
 
     pub async fn can_run(&self, context: Context<E, S>) -> Result<bool, E> {

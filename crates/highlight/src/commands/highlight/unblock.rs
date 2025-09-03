@@ -18,5 +18,6 @@ async fn unblock(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
 
 pub fn command() -> Command<Error, State> {
     Command::new("unblock", unblock)
-        .description("Unblocks a user from highlighting you")
+        .description("Unblocks a user from highlighting you.")
+        .signature("<user>")
 }

@@ -31,7 +31,8 @@ async fn highlight(ctx: Context<Error, State>) -> Result<(), Error> {
 
 pub fn command() -> Command<Error, State> {
     Command::new("highlight", highlight)
-        .description("Manage highlight keywords")
+        .alias("hl")
+        .description("Manage highlight keywords.")
         .child(add::command())
         .child(remove::command())
         .child(block::command())

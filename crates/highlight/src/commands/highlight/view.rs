@@ -25,6 +25,8 @@ async fn view(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
 
 pub fn command() -> Command<Error, State> {
     Command::new("view", view)
+        .description("Views the keywords a user has in this server.")
+        .signature("<user>")
         .check(HasChannelPermissions::new(vec![ChannelPermission::ManageMessages]))
         .check(|ctx: Context<Error, State>| async move { Ok(&ctx.message.author == "") })
 }

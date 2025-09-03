@@ -52,7 +52,7 @@ async fn test(ctx: Context<Error, State>) -> Result<(), Error> {
 pub fn commands() -> Vec<Command<Error, State>> {
     vec![
         Command::new("test", test)
-            .description("Test command"),
+            .description("Test command."),
 
         help::command(),
         highlight::command()

@@ -27,5 +27,7 @@ async fn remove(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -
 
 pub fn command() -> Command<Error, State> {
     Command::new("remove", remove)
-        .description("Removes a highlighted keyword")
+        .description("Removes a highlighted keyword.")
+        .signature("<keyword>")
+        .signature("<user>")
 }
