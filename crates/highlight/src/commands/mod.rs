@@ -1,5 +1,6 @@
 use revolt::{
-    async_trait, commands::{Command, CommandEventHandler, Context},
+    async_trait,
+    commands::{Command, CommandEventHandler, Context},
 };
 
 use crate::{Error, State};
@@ -31,13 +32,15 @@ impl CommandEventHandler<Error, State> for CommandEvents {
 async fn test(ctx: Context<Error, State>) -> Result<(), Error> {
     let msg = ctx
         .notifiers
-        .wait_for_message({
-            let author = ctx.message.author.clone();
-            let channel = ctx.message.channel.clone();
+        .wait_for_message(
+            {
+                let author = ctx.message.author.clone();
+                let channel = ctx.message.channel.clone();
 
-            move |msg| msg.author == author && msg.channel == channel
-        },
-        None)
+                move |msg| msg.author == author && msg.channel == channel
+            },
+            None,
+        )
         .await?;
 
     ctx.http
@@ -51,10 +54,8 @@ async fn test(ctx: Context<Error, State>) -> Result<(), Error> {
 
 pub fn commands() -> Vec<Command<Error, State>> {
     vec![
-        Command::new("test", test)
-            .description("Test command."),
-
+        Command::new("test", test).description("Test command."),
         help::command(),
-        highlight::command()
+        highlight::command(),
     ]
 }

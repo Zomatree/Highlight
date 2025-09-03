@@ -1,4 +1,7 @@
-use revolt::{commands::{Command, Context}, types::User};
+use revolt::{
+    commands::{Command, Context},
+    types::User,
+};
 
 use crate::{Error, State};
 

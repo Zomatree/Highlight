@@ -3,20 +3,22 @@ use std::{borrow::Cow, fmt::Debug, sync::Arc};
 use async_fn_traits::AsyncFn1;
 use async_trait::async_trait;
 use revolt_models::v0::Channel;
-use revolt_permissions::{calculate_channel_permissions, ChannelPermission};
+use revolt_permissions::{ChannelPermission, calculate_channel_permissions};
 
-use crate::{commands::Context, permissions::user_permissions_query, Error};
+use crate::{Error, commands::Context, permissions::user_permissions_query};
 
 #[async_trait]
 pub trait Check<
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
     S: Debug + Clone + Send + Sync + 'static,
->: Send + Sync + 'static {
+>: Send + Sync + 'static
+{
     async fn run(&self, context: Context<E, S>) -> Result<bool, E>;
 }
 
 #[async_trait]
-impl<E, S, F> Check<E, S> for F where
+impl<E, S, F> Check<E, S> for F
+where
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
     S: Debug + Clone + Send + Sync + 'static,
     F: AsyncFn1<Context<E, S>, Output = Result<bool, E>> + Send + Sync + 'static,
@@ -26,7 +28,6 @@ impl<E, S, F> Check<E, S> for F where
         (self)(context).await
     }
 }
-
 
 pub struct HasChannelPermissions(Vec<ChannelPermission>);
 
@@ -40,7 +41,8 @@ impl HasChannelPermissions {
 impl<
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
     S: Debug + Clone + Send + Sync + 'static,
-> Check<E, S> for HasChannelPermissions {
+> Check<E, S> for HasChannelPermissions
+{
     async fn run(&self, context: Context<E, S>) -> Result<bool, E> {
         let permissions = {
             let user_id = &context.message.author;
@@ -48,10 +50,15 @@ impl<
 
             let mut cache = context.cache.write().await;
 
-            let channel = cache.channels.get(channel_id).ok_or(Error::CheckFailure)?.clone();
+            let channel = cache
+                .channels
+                .get(channel_id)
+                .ok_or(Error::CheckFailure)?
+                .clone();
             let server_id = match channel {
-                Channel::TextChannel { ref server, .. } | Channel::VoiceChannel { ref server, .. } => Some(server),
-                _ => None
+                Channel::TextChannel { ref server, .. }
+                | Channel::VoiceChannel { ref server, .. } => Some(server),
+                _ => None,
             };
 
             let server = server_id.and_then(|id| cache.servers.get(id)).cloned();
@@ -63,7 +70,7 @@ impl<
 
                 user.clone()
             } else {
-                return Err(Error::CheckFailure.into())
+                return Err(Error::CheckFailure.into());
             };
 
             let member = if let Some(server_id) = server_id {
@@ -79,7 +86,7 @@ impl<
                     Some(member)
                 } else {
                     // in server but member cannot be found even after attempting to fetch member
-                    return Err(Error::CheckFailure.into())
+                    return Err(Error::CheckFailure.into());
                 }
             } else {
                 None
@@ -104,7 +111,7 @@ impl<
             if !permissions.has(*perm as u64) {
                 return Err(Error::MissingChannelPermission { permissions: *perm }.into());
             };
-        };
+        }
 
         Ok(true)
     }
@@ -116,11 +123,12 @@ pub struct CheckAny<E, S>(pub Arc<Vec<Box<dyn Check<E, S>>>>);
 impl<
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
     S: Debug + Clone + Send + Sync + 'static,
-> Check<E, S> for CheckAny<E, S> {
+> Check<E, S> for CheckAny<E, S>
+{
     async fn run(&self, context: Context<E, S>) -> Result<bool, E> {
         for check in self.0.iter() {
             if check.run(context.clone()).await.unwrap_or_default() == true {
-                return Ok(true)
+                return Ok(true);
             }
         }
 

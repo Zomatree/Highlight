@@ -18,6 +18,10 @@ pub struct Events {
 #[async_trait]
 impl EventHandler<Error> for Events {
     async fn message(&self, ctx: Context, message: Message) -> Result<(), Error> {
+        if message.user.as_ref().unwrap().bot.is_some() {
+            return Ok(())
+        };
+
         tokio::spawn({
             let commands = self.commands.clone();
             let context = ctx.clone();

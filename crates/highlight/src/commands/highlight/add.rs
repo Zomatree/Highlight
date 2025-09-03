@@ -5,7 +5,8 @@ use crate::{Error, State, raise_if_not_in_server};
 async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> Result<(), Error> {
     let server_id = raise_if_not_in_server(&ctx).await?;
 
-    match ctx.state
+    match ctx
+        .state
         .add_keyword(ctx.message.author.clone(), server_id, keyword)
         .await
     {
@@ -15,16 +16,17 @@ async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> R
                 .content("Added to your highlights.".to_string())
                 .build()
                 .await?;
-        },
+        }
         Err(Error::PgError(e)) => {
             if e.as_database_error().unwrap().is_unique_violation() {
-                ctx.http.send_message(&ctx.message.channel)
+                ctx.http
+                    .send_message(&ctx.message.channel)
                     .content("Keyword already exists.".to_string())
                     .build()
                     .await?;
             }
-        },
-        res => return res
+        }
+        res => return res,
     }
 
     Ok(())

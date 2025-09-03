@@ -87,7 +87,10 @@ impl State {
             .collect())
     }
 
-    pub async fn get_keywords(&self, server_id: String) -> Result<HashMap<String, (Vec<String>, Regex)>, Error> {
+    pub async fn get_keywords(
+        &self,
+        server_id: String,
+    ) -> Result<HashMap<String, (Vec<String>, Regex)>, Error> {
         let mut lock = self.cached_keywords.lock().await;
 
         if let Some(value) = lock.get(&server_id) {
@@ -137,23 +140,32 @@ impl State {
         server_id: String,
         keyword: String,
     ) -> Result<bool, Error> {
-        let row_count = sqlx::query("delete from highlights where user_id=$1 and server_id=$2 and keyword=$3 returning *")
-            .bind(&user_id)
-            .bind(&server_id)
-            .bind(&keyword)
-            .execute(&self.pool)
-            .await?
-            .rows_affected();
+        let row_count = sqlx::query(
+            "delete from highlights where user_id=$1 and server_id=$2 and keyword=$3 returning *",
+        )
+        .bind(&user_id)
+        .bind(&server_id)
+        .bind(&keyword)
+        .execute(&self.pool)
+        .await?
+        .rows_affected();
 
         if row_count == 0 {
-            return Ok(false)
+            return Ok(false);
         }
 
         let mut lock = self.cached_keywords.lock().await;
 
         if let Some(values) = lock.get_mut(&server_id) {
             if let Some((keywords, regex)) = values.get_mut(&user_id) {
-                keywords.remove(keywords.iter().enumerate().find(|&(_, kw)| kw == &keyword).unwrap().0);
+                keywords.remove(
+                    keywords
+                        .iter()
+                        .enumerate()
+                        .find(|&(_, kw)| kw == &keyword)
+                        .unwrap()
+                        .0,
+                );
 
                 if keywords.is_empty() {
                     values.remove(&user_id);

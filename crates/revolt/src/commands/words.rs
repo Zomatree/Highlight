@@ -1,4 +1,7 @@
-use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 #[derive(Debug, Clone)]
 pub struct Words {
@@ -26,7 +29,11 @@ impl Words {
     }
 
     pub fn rest(&self) -> Vec<String> {
-        self.values.iter().skip(self.advance_to_end()).cloned().collect()
+        self.values
+            .iter()
+            .skip(self.advance_to_end())
+            .cloned()
+            .collect()
     }
 
     pub fn current_position(&self) -> usize {

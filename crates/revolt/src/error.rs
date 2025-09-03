@@ -11,7 +11,5 @@ pub enum Error {
     BrokenChannel,
     InternalError,
     CheckFailure,
-    MissingChannelPermission {
-        permissions: ChannelPermission
-    }
+    MissingChannelPermission { permissions: ChannelPermission },
 }

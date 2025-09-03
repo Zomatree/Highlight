@@ -118,22 +118,34 @@ impl<
 
         if cmd_context.command.is_none() {
             if let Err(e) = self.event_handler.no_command(cmd_context.clone()).await {
-                self.event_handler.error(cmd_context.clone(), e).await.unwrap();
+                self.event_handler
+                    .error(cmd_context.clone(), e)
+                    .await
+                    .unwrap();
             };
 
             return Ok(());
         }
 
         if let Err(e) = self.event_handler.command(cmd_context.clone()).await {
-            self.event_handler.error(cmd_context.clone(), e).await.unwrap();
+            self.event_handler
+                .error(cmd_context.clone(), e)
+                .await
+                .unwrap();
         };
 
         if let Some(command) = cmd_context.command.as_ref() {
             if let Err(e) = command.can_run(cmd_context.clone()).await {
-                self.event_handler.error(cmd_context.clone(), e).await.unwrap();
+                self.event_handler
+                    .error(cmd_context.clone(), e)
+                    .await
+                    .unwrap();
             } else {
                 if let Err(e) = command.handle.handle(cmd_context.clone()).await {
-                    self.event_handler.error(cmd_context.clone(), e).await.unwrap();
+                    self.event_handler
+                        .error(cmd_context.clone(), e)
+                        .await
+                        .unwrap();
                 };
             }
         }
@@ -147,43 +159,38 @@ pub struct Commands<
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
     S: Debug + Clone + Send + Sync + 'static,
 > {
-    mapping: Arc<RwLock<HashMap<String, Command<E, S>>>>
+    mapping: Arc<RwLock<HashMap<String, Command<E, S>>>>,
 }
 
 impl<
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
     S: Debug + Clone + Send + Sync + 'static,
-> Commands<E, S> {
+> Commands<E, S>
+{
     pub fn new() -> Self {
         Self {
-            mapping: Arc::new(RwLock::new(HashMap::new()))
+            mapping: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
     pub fn try_register(&self, command: Command<E, S>) {
-        let mut mapping = self
-            .mapping
-            .try_write()
-            .unwrap();
+        let mut mapping = self.mapping.try_write().unwrap();
 
         mapping.insert(command.name.clone(), command.clone());
 
         for alias in command.aliases.clone() {
             mapping.insert(alias, command.clone());
-        };
+        }
     }
 
     pub async fn register(&self, command: Command<E, S>) {
-        let mut mapping = self
-            .mapping
-            .write()
-            .await;
+        let mut mapping = self.mapping.write().await;
 
         mapping.insert(command.name.clone(), command.clone());
 
         for alias in command.aliases.clone() {
             mapping.insert(alias, command.clone());
-        };
+        }
     }
 
     #[async_recursion]
@@ -234,19 +241,15 @@ impl<
             {
                 current_command = Some(command)
             } else {
-                break
+                break;
             }
         }
 
-        return current_command
+        return current_command;
     }
 
     pub async fn get_command(&self, name: &str) -> Option<Command<E, S>> {
-        self.mapping
-            .read()
-            .await
-            .get(name)
-            .cloned()
+        self.mapping.read().await.get(name).cloned()
     }
 
     pub async fn get_commands(&self) -> Vec<Command<E, S>> {

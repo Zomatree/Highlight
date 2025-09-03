@@ -3,7 +3,8 @@ use std::{fmt::Debug, ops::Deref};
 use revolt_models::v0::Message;
 
 use crate::{
-    commands::{handler::Commands, Command, Words}, Context as MessageContext, Error
+    Context as MessageContext, Error,
+    commands::{Command, Words, handler::Commands},
 };
 
 #[derive(Debug, Clone)]

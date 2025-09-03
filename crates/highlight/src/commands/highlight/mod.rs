@@ -3,8 +3,8 @@ use revolt::commands::{Command, Context};
 use crate::{Error, State, raise_if_not_in_server};
 
 mod add;
-mod remove;
 mod block;
+mod remove;
 mod unblock;
 mod view;
 

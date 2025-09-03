@@ -5,8 +5,8 @@ pub mod commands;
 pub mod error;
 pub mod events;
 pub mod http;
-pub mod permissions;
 pub mod notifiers;
+pub mod permissions;
 pub mod websocket;
 
 pub use cache::GlobalCache;
