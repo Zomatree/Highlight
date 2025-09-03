@@ -6,21 +6,23 @@ use async_trait::async_trait;
 use async_fn_traits::{AsyncFn1, AsyncFn2, AsyncFn3};
 
 use crate::{
-    commands::{Context, Converter}, Error
+    commands::{checks::Check, Context, Converter}, Error
 };
+
 
 #[derive(Clone)]
 pub struct Command<
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync,
+    S: Debug + Clone + Send + Sync + 'static,
 > {
     pub name: String,
     pub handle: Arc<Box<dyn CommandHandle<(), E, S>>>,
     pub children: HashMap<String, Command<E, S>>,
+    pub checks: Vec<Arc<dyn Check<E, S>>>,
     pub description: Option<String>,
 }
 
-impl<E: From<Error> + Clone + Debug + Send + Sync + 'static, S: Debug + Clone + Send + Sync>
+impl<E: From<Error> + Clone + Debug + Send + Sync + 'static, S: Debug + Clone + Send + Sync + 'static>
     fmt::Debug for Command<E, S>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -44,6 +46,7 @@ impl<
             name: name.into(),
             handle: Arc::new(Box::new(erased)),
             children: HashMap::new(),
+            checks: Vec::new(),
             description: None,
         }
     }
@@ -58,6 +61,22 @@ impl<
         self.description = Some(description.into());
 
         self
+    }
+
+    pub fn check<C: Check<E, S>>(mut self, check: C) -> Self {
+        self.checks.push(Arc::new(check));
+
+        self
+    }
+
+    pub async fn can_run(&self, context: Context<E, S>) -> Result<bool, E> {
+        for check in &self.checks {
+            if check.run(context.clone()).await? == false {
+                return Err(Error::CheckFailure.into())
+            }
+        }
+
+        Ok(true)
     }
 }
 

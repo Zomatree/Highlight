@@ -11,7 +11,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct Context<
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync,
+    S: Debug + Clone + Send + Sync + 'static,
 > {
     pub inner: MessageContext,
     pub prefix: String,

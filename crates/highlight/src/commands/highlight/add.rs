@@ -2,11 +2,11 @@ use revolt::commands::{Command, ConsumeRest, Context};
 
 use crate::{Error, State, raise_if_not_in_server};
 
-async fn add(ctx: Context<Error, State>, keyword: ConsumeRest) -> Result<(), Error> {
+async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> Result<(), Error> {
     let server_id = raise_if_not_in_server(&ctx).await?;
 
     match ctx.state
-        .add_keyword(ctx.message.author.clone(), server_id, keyword.0)
+        .add_keyword(ctx.message.author.clone(), server_id, keyword)
         .await
     {
         Ok(_) => {

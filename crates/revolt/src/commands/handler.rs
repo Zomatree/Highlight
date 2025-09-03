@@ -166,10 +166,14 @@ impl<
             self.event_handler.error(cmd_context.clone(), e).await.unwrap();
         };
 
-        if let Some(handle) = cmd_context.command.as_ref().map(|c| c.handle.clone()) {
-            if let Err(e) = handle.handle(cmd_context.clone()).await {
+        if let Some(command) = cmd_context.command.as_ref() {
+            if let Err(e) = command.can_run(cmd_context.clone()).await {
                 self.event_handler.error(cmd_context.clone(), e).await.unwrap();
-            };
+            } else {
+                if let Err(e) = command.handle.handle(cmd_context.clone()).await {
+                    self.event_handler.error(cmd_context.clone(), e).await.unwrap();
+                };
+            }
         }
 
         Ok(())

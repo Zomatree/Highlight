@@ -6,6 +6,7 @@ mod add;
 mod remove;
 mod block;
 mod unblock;
+mod view;
 
 async fn highlight(ctx: Context<Error, State>) -> Result<(), Error> {
     let server_id = raise_if_not_in_server(&ctx).await?;
@@ -35,4 +36,5 @@ pub fn command() -> Command<Error, State> {
         .child(remove::command())
         .child(block::command())
         .child(unblock::command())
+        .child(view::command())
 }

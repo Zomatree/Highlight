@@ -2,7 +2,7 @@ use std::{fmt::Debug, sync::LazyLock};
 
 use async_trait::async_trait;
 use regex::Regex;
-use revolt_models::v0::{User, Channel};
+use revolt_models::v0::{Channel, User};
 
 use crate::{Error, commands::Context};
 
@@ -57,9 +57,7 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
         {
             let id = captures.get(1).unwrap().as_str();
 
-            let cache = context.cache.read().await;
-            let user = cache.users.get(id).cloned();
-            drop(cache);
+            let user = context.cache.read().await.users.get(id).cloned();
 
             if let Some(user) = user {
                 return Ok(user.clone());
@@ -89,7 +87,7 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
             let cache = context.cache.read().await;
 
             if let Some(channel) = cache.channels.get(id) {
-                return Ok(channel.clone())
+                return Ok(channel.clone());
             }
         };
 
@@ -103,16 +101,28 @@ pub struct ConsumeRest(pub String);
 impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
     for ConsumeRest
 {
-    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
-        let mut output = input;
+    async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
+        let words = context.words.rest();
 
-        let rest = context.words.rest().join(" ");
+        Ok(Self(words.join(" ")))
+    }
 
-        if !rest.is_empty() {
-            output.push(' ');
-            output.push_str(&rest);
-        };
+    async fn convert(_context: &Context<E, S>, _input: String) -> Result<Self, E> {
+        unreachable!()
+    }
+}
 
-        Ok(ConsumeRest(output))
+pub struct Rest(pub Vec<String>);
+
+#[async_trait]
+impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
+    for Rest
+{
+    async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
+        Ok(Self(context.words.rest()))
+    }
+
+    async fn convert(_context: &Context<E, S>, _input: String) -> Result<Self, E> {
+        unreachable!()
     }
 }

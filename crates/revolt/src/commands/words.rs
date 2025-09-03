@@ -26,7 +26,7 @@ impl Words {
     }
 
     pub fn rest(&self) -> Vec<String> {
-        self.values.iter().skip(self.current_position()).cloned().collect()
+        self.values.iter().skip(self.advance_to_end()).cloned().collect()
     }
 
     pub fn current_position(&self) -> usize {
@@ -39,5 +39,9 @@ impl Words {
 
     pub fn undo(&self) -> usize {
         self.pos.fetch_sub(1, Ordering::SeqCst)
+    }
+
+    pub fn advance_to_end(&self) -> usize {
+        self.pos.swap(self.values.len(), Ordering::SeqCst)
     }
 }
