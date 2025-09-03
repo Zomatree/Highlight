@@ -1,14 +1,8 @@
-use revolt::{command, commands::Context, types::User};
+use revolt::{commands::{Command, Context}, types::User};
 
 use crate::{Error, State};
 
-#[command(
-    name = "block",
-    error = Error,
-    state = State,
-    description = "Blocks a user from highlighting you",
-)]
-pub async fn block(ctx: &mut Context<Error, State>, user: User) -> Result<(), Error> {
+async fn block(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
     ctx.state
         .block_user(ctx.message.author.clone(), user.id.clone())
         .await?;
@@ -20,4 +14,9 @@ pub async fn block(ctx: &mut Context<Error, State>, user: User) -> Result<(), Er
         .await?;
 
     Ok(())
+}
+
+pub fn command() -> Command<Error, State> {
+    Command::new("block", block)
+        .description("Blocks a user from highlighting you")
 }

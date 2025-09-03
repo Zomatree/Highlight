@@ -1,37 +1,43 @@
+use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
+
 #[derive(Debug, Clone)]
 pub struct Words {
     values: Vec<String>,
-    pos: usize,
+    pos: Arc<AtomicUsize>,
 }
 
 impl Words {
     pub fn new(input: &str) -> Self {
         Self {
             values: input.split(' ').map(|v| v.to_string()).collect(),
-            pos: 0,
+            pos: Arc::new(AtomicUsize::new(0)),
         }
     }
 
-    pub fn next(&mut self) -> Option<String> {
-        let value = self.values.get(self.pos).cloned();
-        self.advance();
+    pub fn next(&self) -> Option<String> {
+        let pos = self.advance();
+        let value = self.values.get(pos).cloned();
 
         value
     }
 
     pub fn current(&self) -> Option<String> {
-        self.values.get(self.pos).cloned()
+        self.values.get(self.current_position()).cloned()
     }
 
     pub fn rest(&self) -> Vec<String> {
-        self.values.iter().skip(self.pos).cloned().collect()
+        self.values.iter().skip(self.current_position()).cloned().collect()
     }
 
-    pub fn advance(&mut self) {
-        self.pos += 1;
+    pub fn current_position(&self) -> usize {
+        self.pos.load(Ordering::SeqCst)
     }
 
-    pub fn undo(&mut self) {
-        self.pos = self.pos.saturating_sub(1);
+    pub fn advance(&self) -> usize {
+        self.pos.fetch_add(1, Ordering::SeqCst)
+    }
+
+    pub fn undo(&self) -> usize {
+        self.pos.fetch_sub(1, Ordering::SeqCst)
     }
 }

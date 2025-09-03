@@ -1,14 +1,8 @@
-use revolt::{command, commands::Context, types::User};
+use revolt::{commands::{Command, Context}, types::User};
 
 use crate::{Error, State};
 
-#[command(
-    name = "unblock",
-    error = Error,
-    state = State,
-    description = "Blocks a user from highlighting you",
-)]
-pub async fn unblock(ctx: &mut Context<Error, State>, user: User) -> Result<(), Error> {
+async fn unblock(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
     ctx.state
         .unblock_user(ctx.message.author.clone(), user.id.clone())
         .await?;
@@ -20,4 +14,9 @@ pub async fn unblock(ctx: &mut Context<Error, State>, user: User) -> Result<(), 
         .await?;
 
     Ok(())
+}
+
+pub fn command() -> Command<Error, State> {
+    Command::new("unblock", unblock)
+        .description("Unblocks a user from highlighting you")
 }

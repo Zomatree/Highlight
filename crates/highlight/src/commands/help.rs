@@ -1,14 +1,8 @@
-use revolt::{command, commands::Context};
+use revolt::commands::{Command, Context};
 
 use crate::{Error, State};
 
-#[command(
-    name = "help",
-    error = Error,
-    state = State,
-    description = "Shows all commands"
-)]
-pub async fn help(ctx: &Context<Error, State>) -> Result<(), Error> {
+async fn help(ctx: Context<Error, State>) -> Result<(), Error> {
     let commands = ctx
         .commands
         .read()
@@ -31,4 +25,9 @@ pub async fn help(ctx: &Context<Error, State>) -> Result<(), Error> {
         .await?;
 
     Ok(())
+}
+
+pub fn command() -> Command<Error, State> {
+    Command::new("help", help)
+        .description("Shows this command")
 }

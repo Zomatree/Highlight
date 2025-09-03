@@ -8,7 +8,7 @@ use revolt_models::v0::{
 };
 use tokio::sync::{Mutex, RwLock};
 
-use crate::{cache::GlobalCache, http::HttpClient, waiters::Waiters};
+use crate::{cache::GlobalCache, http::HttpClient, notifiers::Notifiers};
 
 macro_rules! set_enum_varient_values {
     ($enum: ident, $key: ident, $value: expr, ($($varient: path),+)) => {
@@ -291,7 +291,7 @@ pub fn update_state(event: EventV1, state: &mut GlobalCache) {
 pub struct Context {
     pub cache: Arc<RwLock<GlobalCache>>,
     pub http: HttpClient,
-    pub waiters: Waiters,
+    pub notifiers: Notifiers,
 }
 
 #[async_trait]

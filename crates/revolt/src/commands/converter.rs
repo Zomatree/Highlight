@@ -2,7 +2,7 @@ use std::{fmt::Debug, sync::LazyLock};
 
 use async_trait::async_trait;
 use regex::Regex;
-use revolt_models::v0::User;
+use revolt_models::v0::{User, Channel};
 
 use crate::{Error, commands::Context};
 
@@ -10,19 +10,27 @@ static ID_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})$").unwrap());
 static USER_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^<@([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})>$").unwrap());
+static CHANNEL_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^<#([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})>$").unwrap());
 
 #[async_trait]
 pub trait Converter<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync>:
     Sized
 {
-    async fn convert(context: &mut Context<E, S>, input: String) -> Result<Self, E>;
+    async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
+        let input = context.words.next().ok_or(Error::MissingParameter)?;
+
+        Self::convert(context, input).await
+    }
+
+    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E>;
 }
 
 #[async_trait]
 impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
     for u32
 {
-    async fn convert(context: &mut Context<E, S>, input: String) -> Result<Self, E> {
+    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
         input
             .parse::<u32>()
             .map_err(|e| Error::ConverterError(e.to_string()).into())
@@ -33,7 +41,7 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
 impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
     for String
 {
-    async fn convert(context: &mut Context<E, S>, input: String) -> Result<Self, E> {
+    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
         Ok(input)
     }
 }
@@ -42,7 +50,7 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
 impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
     for User
 {
-    async fn convert(context: &mut Context<E, S>, input: String) -> Result<Self, E> {
+    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
         if let Some(captures) = USER_REGEX
             .captures(&input)
             .or_else(|| ID_REGEX.captures(&input))
@@ -68,13 +76,34 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
     }
 }
 
+#[async_trait]
+impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
+    for Channel
+{
+    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
+        if let Some(captures) = CHANNEL_REGEX
+            .captures(&input)
+            .or_else(|| ID_REGEX.captures(&input))
+        {
+            let id = captures.get(1).unwrap().as_str();
+            let cache = context.cache.read().await;
+
+            if let Some(channel) = cache.channels.get(id) {
+                return Ok(channel.clone())
+            }
+        };
+
+        Err(Error::ConverterError("Channel not found".to_string()).into())
+    }
+}
+
 pub struct ConsumeRest(pub String);
 
 #[async_trait]
 impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
     for ConsumeRest
 {
-    async fn convert(context: &mut Context<E, S>, input: String) -> Result<Self, E> {
+    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
         let mut output = input;
 
         let rest = context.words.rest().join(" ");

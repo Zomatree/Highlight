@@ -1,24 +1,14 @@
-use revolt::{command, commands::Context};
+use revolt::commands::{Command, Context};
 
 use crate::{Error, State, raise_if_not_in_server};
 
 mod add;
+mod remove;
 mod block;
 mod unblock;
 
-#[command(
-    name = "highlight",
-    error = Error,
-    state = State,
-    children = [
-        add::add,
-        block::block,
-        unblock::unblock,
-    ],
-    description = "Managed highlight keywords",
-)]
-pub async fn highlight(ctx: &mut Context<Error, State>) -> Result<(), Error> {
-    let server_id = raise_if_not_in_server(ctx).await?;
+async fn highlight(ctx: Context<Error, State>) -> Result<(), Error> {
+    let server_id = raise_if_not_in_server(&ctx).await?;
 
     let highlights = ctx
         .state
@@ -36,4 +26,13 @@ pub async fn highlight(ctx: &mut Context<Error, State>) -> Result<(), Error> {
         .await?;
 
     Ok(())
+}
+
+pub fn command() -> Command<Error, State> {
+    Command::new("highlight", highlight)
+        .description("Manage highlight keywords")
+        .child(add::command())
+        .child(remove::command())
+        .child(block::command())
+        .child(unblock::command())
 }

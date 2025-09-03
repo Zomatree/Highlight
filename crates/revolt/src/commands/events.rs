@@ -8,18 +8,18 @@ use crate::{Error, commands::Context};
 #[allow(unused)]
 pub trait CommandEventHandler<
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync,
+    S: Debug + Clone + Send + Sync + 'static,
 >
 {
-    async fn command(&self, context: &mut Context<E, S>) -> Result<(), E> {
+    async fn command(&self, context: Context<E, S>) -> Result<(), E> {
         Ok(())
     }
 
-    async fn no_command(&self, context: &mut Context<E, S>) -> Result<(), E> {
+    async fn no_command(&self, context: Context<E, S>) -> Result<(), E> {
         Ok(())
     }
 
-    async fn error(&self, context: &mut Context<E, S>, error: E) -> Result<(), E> {
+    async fn error(&self, context: Context<E, S>, error: E) -> Result<(), E> {
         println!("Error: {error:?}");
 
         Ok(())

@@ -13,7 +13,7 @@ use crate::{
     cache::GlobalCache,
     events::{Context, EventHandler, update_state},
     http::HttpClient,
-    waiters::Waiters,
+    notifiers::Notifiers,
     websocket::run,
 };
 
@@ -25,7 +25,7 @@ pub struct Client<
     pub state: Arc<RwLock<GlobalCache>>,
     pub handler: Arc<H>,
     pub http: HttpClient,
-    pub waiters: Waiters,
+    pub waiters: Notifiers,
     _e: PhantomData<E>,
 }
 
@@ -43,7 +43,7 @@ impl<
             state: Arc::new(RwLock::new(GlobalCache::new(api_config))),
             handler: Arc::new(handler),
             http,
-            waiters: Waiters::default(),
+            waiters: Notifiers::default(),
             _e: PhantomData,
         }
     }
@@ -79,7 +79,7 @@ impl<
         let context = Context {
             cache: self.state.clone(),
             http: self.http.clone(),
-            waiters: self.waiters.clone(),
+            notifiers: self.waiters.clone(),
         };
 
         let wrapper = AssertUnwindSafe(async {

@@ -12,7 +12,7 @@ use tokio::sync::RwLock;
 pub struct CommandHandler<
     H: CommandEventHandler<E, S> + Clone + Send + Sync + 'static,
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync,
+    S: Debug + Clone + Send + Sync + 'static,
 > {
     prefix: Arc<
         Box<
@@ -29,7 +29,7 @@ pub struct CommandHandler<
 impl<
     H: CommandEventHandler<E, S> + Clone + Send + Sync,
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync,
+    S: Debug + Clone + Send + Sync + 'static,
 > CommandHandler<H, E, S>
 {
     pub fn new(event_handler: H, state: S) -> Self {
@@ -88,7 +88,7 @@ impl<
     pub async fn find_command_from_words(
         &self,
         current_command: Option<&Command<E, S>>,
-        words: &mut Words,
+        words: &Words,
     ) -> Option<Command<E, S>> {
         let next_word = words.current()?;
 
@@ -98,7 +98,6 @@ impl<
             .and_then(|command| command.children.get(&next_word))
             .or_else(|| commands.get(&next_word))
         {
-            println!("{command:?}");
             words.advance();
 
             if !command.children.is_empty() {
@@ -143,34 +142,33 @@ impl<
 
         let rest = &message_content[prefix.len()..];
 
-        let mut words = Words::new(rest);
-        println!("{words:?}");
+        let words = Words::new(rest);
 
-        let mut context = Context {
+        let cmd_context = Context::<E, S> {
             inner: context,
             prefix: prefix,
-            command: self.find_command_from_words(None, &mut words).await,
+            command: self.find_command_from_words(None, &words).await,
             message: message.clone(),
             state: self.state.clone(),
             words,
             commands: self.commands.clone(),
         };
 
-        if context.command.is_none() {
-            if let Err(e) = self.event_handler.no_command(&mut context).await {
-                self.event_handler.error(&mut context, e).await.unwrap();
+        if cmd_context.command.is_none() {
+            if let Err(e) = self.event_handler.no_command(cmd_context.clone()).await {
+                self.event_handler.error(cmd_context.clone(), e).await.unwrap();
             };
 
             return Ok(());
         }
 
-        if let Err(e) = self.event_handler.command(&mut context).await {
-            self.event_handler.error(&mut context, e).await.unwrap();
+        if let Err(e) = self.event_handler.command(cmd_context.clone()).await {
+            self.event_handler.error(cmd_context.clone(), e).await.unwrap();
         };
 
-        if let Some(handle) = context.command.as_ref().map(|c| c.handle) {
-            if let Err(e) = handle(&mut context).await {
-                self.event_handler.error(&mut context, e).await.unwrap();
+        if let Some(handle) = cmd_context.command.as_ref().map(|c| c.handle.clone()) {
+            if let Err(e) = handle.handle(cmd_context.clone()).await {
+                self.event_handler.error(cmd_context.clone(), e).await.unwrap();
             };
         }
 

@@ -16,12 +16,12 @@ struct Waiter<Arg> {
 type WaiterMap<M> = Arc<Mutex<HashMap<usize, Waiter<M>>>>;
 
 #[derive(Default, Debug, Clone)]
-pub struct Waiters {
+pub struct Notifiers {
     messages: WaiterMap<Message>,
     typing_start: WaiterMap<(String, String)>,
 }
 
-impl Waiters {
+impl Notifiers {
     async fn inner_wait<F: Fn(&M) -> bool + Send + Sync + 'static, M: Clone>(
         &self,
         waiters: &WaiterMap<M>,

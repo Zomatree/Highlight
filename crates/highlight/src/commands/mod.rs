@@ -1,6 +1,5 @@
 use revolt::{
-    async_trait, command, commands,
-    commands::{Command, CommandEventHandler, Context},
+    async_trait, commands::{Command, CommandEventHandler, Context},
 };
 
 use crate::{Error, State};
@@ -13,7 +12,7 @@ pub struct CommandEvents;
 
 #[async_trait]
 impl CommandEventHandler<Error, State> for CommandEvents {
-    async fn error(&self, ctx: &mut Context<Error, State>, error: Error) -> Result<(), Error> {
+    async fn error(&self, ctx: Context<Error, State>, error: Error) -> Result<(), Error> {
         match error {
             Error::NotInServer => {
                 ctx.http
@@ -29,19 +28,21 @@ impl CommandEventHandler<Error, State> for CommandEvents {
     }
 }
 
-#[command(name = "test", error = Error, state = State)]
-async fn test(ctx: &mut Context<Error, State>) -> Result<(), Error> {
-    let author_id = ctx.message.author.clone();
-
+async fn test(ctx: Context<Error, State>) -> Result<(), Error> {
     let msg = ctx
-        .waiters
-        .wait_for_message(move |msg| msg.author == author_id, None)
+        .notifiers
+        .wait_for_message({
+            let author = ctx.message.author.clone();
+            let channel = ctx.message.channel.clone();
+
+            move |msg| msg.author == author && msg.channel == channel
+        },
+        None)
         .await?;
 
     ctx.http
         .send_message(&ctx.message.channel)
         .content(msg.content.unwrap())
-        // .content("Hello world".to_string())
         .build()
         .await?;
 
@@ -49,5 +50,11 @@ async fn test(ctx: &mut Context<Error, State>) -> Result<(), Error> {
 }
 
 pub fn commands() -> Vec<Command<Error, State>> {
-    commands![highlight::highlight, help::help, test]
+    vec![
+        Command::new("test", test)
+            .description("Test command"),
+
+        help::command(),
+        highlight::command()
+    ]
 }

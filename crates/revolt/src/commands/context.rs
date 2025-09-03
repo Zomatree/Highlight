@@ -8,7 +8,7 @@ use crate::{
     commands::{Command, Words},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Context<
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
     S: Debug + Clone + Send + Sync,

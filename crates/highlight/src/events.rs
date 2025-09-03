@@ -65,7 +65,7 @@ impl EventHandler<Error> for Events {
             .cloned()
             .unwrap_or_default();
 
-        for (user_id, regex) in regexes {
+        for (user_id, (_, regex)) in regexes {
             if known_not_in_server.contains(&user_id) {
                 continue;
             };
@@ -152,7 +152,7 @@ impl EventHandler<Error> for Events {
                     .to_string();
                 drop(cache);
 
-                let waiters = ctx.waiters.clone();
+                let waiters = ctx.notifiers.clone();
                 let http = ctx.http.clone();
                 let state = self.state.clone();
 

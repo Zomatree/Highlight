@@ -15,7 +15,7 @@ use crate::{Config, Error};
 pub struct State {
     pub config: Arc<Config>,
     pub pool: PgPool,
-    pub cached_keywords: Arc<Mutex<LruCache<String, HashMap<String, Regex>>>>,
+    pub cached_keywords: Arc<Mutex<LruCache<String, HashMap<String, (Vec<String>, Regex)>>>>,
     pub cached_blocked: Arc<Mutex<LruCache<String, HashSet<String>>>>,
     pub known_not_in_server: Arc<RwLock<HashMap<String, HashSet<String>>>>,
 }
@@ -63,7 +63,7 @@ impl State {
     pub async fn fetch_keywords_for_server(
         &self,
         server_id: &str,
-    ) -> Result<HashMap<String, Regex>, Error> {
+    ) -> Result<HashMap<String, (Vec<String>, Regex)>, Error> {
         let mut iter = sqlx::query_as::<_, (String, String)>(
             "select user_id, keyword from highlights where server_id=$1",
         )
@@ -79,14 +79,15 @@ impl State {
         Ok(mapping
             .into_iter()
             .map(|(user_id, keywords)| {
-                let regex = Regex::new(&keywords.join("|")).unwrap();
+                let patten = format!(r#"(?:^|[^\w])({})(?:s|[^\w]|$)"#, keywords.join("|"));
+                let regex = Regex::new(&patten).unwrap();
 
-                (user_id, regex)
+                (user_id, (keywords, regex))
             })
             .collect())
     }
 
-    pub async fn get_keywords(&self, server_id: String) -> Result<HashMap<String, Regex>, Error> {
+    pub async fn get_keywords(&self, server_id: String) -> Result<HashMap<String, (Vec<String>, Regex)>, Error> {
         let mut lock = self.cached_keywords.lock().await;
 
         if let Some(value) = lock.get(&server_id) {
@@ -116,14 +117,54 @@ impl State {
         let mut lock = self.cached_keywords.lock().await;
 
         if let Some(values) = lock.get_mut(&server_id) {
-            if let Some(regex) = values.get_mut(&user_id) {
-                *regex = Regex::new(&format!("{}|{keyword}", regex.as_str())).unwrap()
+            if let Some((keywords, regex)) = values.get_mut(&user_id) {
+                keywords.push(keyword);
+                let patten = format!(r#"(?:^|[^\w])({})(?:s|[^\w]|$)"#, keywords.join("|"));
+
+                *regex = Regex::new(&patten).unwrap()
             } else {
-                values.insert(user_id.clone(), Regex::new(&keyword).unwrap());
+                let regex = Regex::new(&format!(r#"(?:^|[^\w])({keyword})(?:s|[^\w]|$)"#)).unwrap();
+                values.insert(user_id.clone(), (vec![keyword], regex));
             }
         };
 
         Ok(())
+    }
+
+    pub async fn remove_keyword(
+        &self,
+        user_id: String,
+        server_id: String,
+        keyword: String,
+    ) -> Result<bool, Error> {
+        let row_count = sqlx::query("delete from highlights where user_id=$1 and server_id=$2 and keyword=$3 returning *")
+            .bind(&user_id)
+            .bind(&server_id)
+            .bind(&keyword)
+            .execute(&self.pool)
+            .await?
+            .rows_affected();
+
+        if row_count == 0 {
+            return Ok(false)
+        }
+
+        let mut lock = self.cached_keywords.lock().await;
+
+        if let Some(values) = lock.get_mut(&server_id) {
+            if let Some((keywords, regex)) = values.get_mut(&user_id) {
+                keywords.remove(keywords.iter().enumerate().find(|&(_, kw)| kw == &keyword).unwrap().0);
+
+                if keywords.is_empty() {
+                    values.remove(&user_id);
+                } else {
+                    let patten = format!(r#"(?:^|[^\w])({})(?:s|[^\w]|$)"#, keywords.join("|"));
+                    *regex = Regex::new(&patten).unwrap()
+                }
+            };
+        };
+
+        Ok(true)
     }
 
     pub async fn block_user(&self, user_id: String, blocked_user: String) -> Result<(), Error> {

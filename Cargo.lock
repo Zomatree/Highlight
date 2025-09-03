@@ -325,6 +325,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "async_fn_traits"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc58d489c5f2d2c5be31b9004cec7af25a70d23df4d8111715eee736234cf217"
+dependencies = [
+ "paste",
+]
+
+[[package]]
 name = "atoi"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -836,16 +845,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "darling"
-version = "0.21.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cdf337090841a411e2a7f3deb9187445851f91b309c0c0a29e05f74a00a48c0"
-dependencies = [
- "darling_core 0.21.3",
- "darling_macro 0.21.3",
-]
-
-[[package]]
 name = "darling_core"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -874,20 +873,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "darling_core"
-version = "0.21.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1247195ecd7e3c85f83c8d2a366e4210d588e802133e1e355180a9870b517ea4"
-dependencies = [
- "fnv",
- "ident_case",
- "proc-macro2",
- "quote 1.0.40",
- "strsim 0.11.1",
- "syn 2.0.106",
-]
-
-[[package]]
 name = "darling_macro"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -905,17 +890,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc34b93ccb385b40dc71c6fceac4b2ad23662c7eeb248cf10d529b7e055b6ead"
 dependencies = [
  "darling_core 0.20.11",
- "quote 1.0.40",
- "syn 2.0.106",
-]
-
-[[package]]
-name = "darling_macro"
-version = "0.21.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d38308df82d1080de0afee5d069fa14b0326a88c14f15c5ccda35b4a6c414c81"
-dependencies = [
- "darling_core 0.21.3",
  "quote 1.0.40",
  "syn 2.0.106",
 ]
@@ -3480,12 +3454,12 @@ version = "0.1.0"
 dependencies = [
  "async-recursion",
  "async-trait",
+ "async_fn_traits",
  "futures",
  "rand 0.8.5",
  "regex",
  "reqwest 0.12.23",
  "revolt-database",
- "revolt-macros",
  "revolt-models",
  "revolt-permissions",
  "serde",
@@ -3549,15 +3523,6 @@ dependencies = [
  "ulid 1.2.1",
  "unicode-segmentation",
  "validator 0.16.1",
-]
-
-[[package]]
-name = "revolt-macros"
-version = "0.1.0"
-dependencies = [
- "darling 0.21.3",
- "quote 1.0.40",
- "syn 2.0.106",
 ]
 
 [[package]]
