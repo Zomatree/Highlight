@@ -13,6 +13,6 @@ create table if not exists blocks (
     blocked_user text not null,
 
     unique (user_id, blocked_user)
-)
+);
 
 create index if not exists blocked_user_id on blocks (user_id);

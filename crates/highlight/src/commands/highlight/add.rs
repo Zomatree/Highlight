@@ -1,9 +1,9 @@
-use revolt::commands::{Command, ConsumeRest, Context};
+use revolt::commands::{server_only, Command, ConsumeRest, Context};
 
-use crate::{Error, State, raise_if_not_in_server};
+use crate::{Error, State};
 
 async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> Result<(), Error> {
-    let server_id = raise_if_not_in_server(&ctx).await?;
+    let server_id = ctx.get_current_server().await.as_ref().unwrap().id.clone();
 
     match ctx
         .state
@@ -36,4 +36,5 @@ pub fn command() -> Command<Error, State> {
     Command::new("add", add)
         .description("Adds a highlight keyword.")
         .signature("<keyword>")
+        .check(server_only)
 }

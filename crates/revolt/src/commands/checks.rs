@@ -44,67 +44,30 @@ impl<
 > Check<E, S> for HasChannelPermissions
 {
     async fn run(&self, context: Context<E, S>) -> Result<bool, E> {
-        let permissions = {
-            let user_id = &context.message.author;
-            let channel_id = &context.message.channel;
+        let permissions = || async move {
+            let user = context.get_user().await.as_ref()?;
+            let channel = context.get_current_channel().await.as_ref()?;
+            let server = context.get_current_server().await.as_ref();
+            let member = context.get_member().await.as_ref();
 
             let mut cache = context.cache.write().await;
-
-            let channel = cache
-                .channels
-                .get(channel_id)
-                .ok_or(Error::CheckFailure)?
-                .clone();
-            let server_id = match channel {
-                Channel::TextChannel { ref server, .. }
-                | Channel::VoiceChannel { ref server, .. } => Some(server),
-                _ => None,
-            };
-
-            let server = server_id.and_then(|id| cache.servers.get(id)).cloned();
-
-            let user = if let Some(user) = cache.users.get(user_id) {
-                user.clone()
-            } else if let Ok(user) = context.http.fetch_user(user_id).await {
-                cache.users.insert(user.id.clone(), user.clone());
-
-                user.clone()
-            } else {
-                return Err(Error::CheckFailure.into());
-            };
-
-            let member = if let Some(server_id) = server_id {
-                if let Some(member) = cache.members.get(server_id).as_ref().unwrap().get(user_id) {
-                    Some(member.clone())
-                } else if let Ok(member) = context.http.fetch_member(&server_id, &user_id).await {
-                    cache
-                        .members
-                        .get_mut(server_id)
-                        .unwrap()
-                        .insert(user_id.clone(), member.clone());
-
-                    Some(member)
-                } else {
-                    // in server but member cannot be found even after attempting to fetch member
-                    return Err(Error::CheckFailure.into());
-                }
-            } else {
-                None
-            };
-
             let mut query =
-                user_permissions_query(&mut cache, context.http.clone(), Cow::Owned(user))
-                    .channel(Cow::Owned(channel));
+                user_permissions_query(&mut cache, context.http.clone(), Cow::Borrowed(user))
+                    .channel(Cow::Borrowed(channel));
 
             if let Some(server) = server {
-                query = query.server(Cow::Owned(server));
+                query = query.server(Cow::Borrowed(server));
             };
 
             if let Some(member) = member {
-                query = query.member(Cow::Owned(member));
+                query = query.member(Cow::Borrowed(member));
             };
 
-            calculate_channel_permissions(&mut query).await
+            Some(calculate_channel_permissions(&mut query).await)
+        };
+
+        let Some(permissions) = permissions().await else {
+            return Err(Error::CheckFailure.into())
         };
 
         for perm in &self.0 {
@@ -139,5 +102,29 @@ impl<
 impl<E, S> CheckAny<E, S> {
     pub fn new(checks: Vec<Box<dyn Check<E, S>>>) -> Self {
         Self(Arc::new(checks))
+    }
+}
+
+pub async fn server_only<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static
+>(context: Context<E, S>) -> Result<bool, E> {
+    match context.get_current_channel().await {
+        Some(Channel::TextChannel { .. } | Channel::VoiceChannel { .. }) => {
+            Ok(true)
+        }
+        _ => Err(Error::NotInServer.into()),
+    }
+}
+
+pub async fn dm_only<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static
+>(context: Context<E, S>) -> Result<bool, E> {
+    match context.get_current_channel().await {
+        Some(Channel::DirectMessage { .. } | Channel::Group { .. } | Channel::SavedMessages { .. }) => {
+            Ok(true)
+        }
+        _ => Err(Error::NotInDM.into()),
     }
 }

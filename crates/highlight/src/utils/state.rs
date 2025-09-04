@@ -26,11 +26,7 @@ impl State {
             toml::from_str::<Config>(&std::fs::read_to_string("Highlight.toml").unwrap()).unwrap(),
         );
 
-        let pool = PgPool::connect_with(
-            PgConnectOptions::new_without_pgpass()
-                .host("localhost")
-                .database("highlight"),
-        )
+        let pool = PgPool::connect(&config.database.url)
         .await
         .unwrap();
 

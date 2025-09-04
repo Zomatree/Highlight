@@ -385,17 +385,7 @@ impl revolt_permissions::PermissionQuery for PermissionQuery<'_> {
                 | Cow::Owned(Channel::TextChannel { server, .. })
                 | Cow::Borrowed(Channel::VoiceChannel { server, .. })
                 | Cow::Owned(Channel::VoiceChannel { server, .. }) => {
-                    if let Some(known_server) =
-                        // I'm not sure why I can't just pattern match both at once here?
-                        // It throws some weird error and the provided fix doesn't work :/
-                        if let Some(Cow::Borrowed(known_server)) = self.server {
-                                Some(known_server)
-                            } else if let Some(Cow::Owned(ref known_server)) = self.server {
-                                Some(known_server)
-                            } else {
-                                None
-                            }
-                    {
+                    if let Some(known_server) = self.server.as_ref().map(|server| server.as_ref()) {
                         if server == &known_server.id {
                             // Already cached, return early.
                             return;

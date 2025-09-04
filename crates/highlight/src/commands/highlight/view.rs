@@ -1,13 +1,13 @@
 use revolt::{
-    commands::{Command, Context, HasChannelPermissions},
+    commands::{server_only, Command, Context, HasChannelPermissions},
     permissions::ChannelPermission,
     types::User,
 };
 
-use crate::{Error, State, raise_if_not_in_server};
+use crate::{Error, State};
 
 async fn view(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
-    let server_id = raise_if_not_in_server(&ctx).await?;
+    let server_id = &ctx.get_current_server().await.as_ref().unwrap().id;
 
     let highlights = ctx
         .state
@@ -33,6 +33,7 @@ pub fn command() -> Command<Error, State> {
     Command::new("view", view)
         .description("Views the keywords a user has in this server.")
         .signature("<user>")
+        .check(server_only)
         .check(HasChannelPermissions::new(vec![
             ChannelPermission::ManageMessages,
         ]))

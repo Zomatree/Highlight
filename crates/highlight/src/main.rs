@@ -11,7 +11,10 @@ async fn main() {
     let state = State::new().await;
 
     let commands = CommandHandler::new(commands::CommandEvents, state.clone())
-        .with_static_prefix(&state.config.bot.prefix)
+        .with_static_prefixes(vec![
+            format!("<@{}> ", &state.config.bot.id),
+            state.config.bot.prefix.clone(),
+        ])
         .register(commands::commands());
 
     let events = events::Events {

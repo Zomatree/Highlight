@@ -3464,6 +3464,7 @@ dependencies = [
  "revolt-permissions",
  "serde",
  "serde_json",
+ "state",
  "tokio 1.47.1",
  "tokio-tungstenite",
  "tungstenite",

@@ -4,6 +4,7 @@ api = "https://api.revolt.chat"
 [bot]
 prefix = "h!"
 token = ""
+id = ""
 
 [database]
 url = ""

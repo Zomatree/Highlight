@@ -12,4 +12,6 @@ pub enum Error {
     InternalError,
     CheckFailure,
     MissingChannelPermission { permissions: ChannelPermission },
+    NotInServer,
+    NotInDM,
 }

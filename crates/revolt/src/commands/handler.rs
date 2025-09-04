@@ -5,6 +5,7 @@ use crate::{
 use async_recursion::async_recursion;
 use futures::{FutureExt, future::BoxFuture};
 use revolt_models::v0::Message;
+use state::TypeMap;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -106,7 +107,7 @@ impl<
 
         let words = Words::new(rest);
 
-        let cmd_context = Context::<E, S> {
+        let cmd_context = Context {
             inner: context,
             prefix: prefix,
             command: self.commands.find_command_from_words(None, &words).await,
@@ -114,6 +115,7 @@ impl<
             state: self.state.clone(),
             words,
             commands: self.commands.clone(),
+            local_state: Arc::new(<TypeMap![Send + Sync]>::new())
         };
 
         if cmd_context.command.is_none() {

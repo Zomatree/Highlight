@@ -1,12 +1,12 @@
-use revolt::commands::{Command, ConsumeRest, Context};
+use revolt::commands::{server_only, Command, ConsumeRest, Context};
 
-use crate::{Error, State, raise_if_not_in_server};
+use crate::{Error, State};
 
 async fn remove(
     ctx: Context<Error, State>,
     ConsumeRest(keyword): ConsumeRest,
 ) -> Result<(), Error> {
-    let server_id = raise_if_not_in_server(&ctx).await?;
+    let server_id = ctx.get_current_server().await.as_ref().unwrap().id.clone();
 
     let removed = ctx
         .state
@@ -34,5 +34,5 @@ pub fn command() -> Command<Error, State> {
     Command::new("remove", remove)
         .description("Removes a highlighted keyword.")
         .signature("<keyword>")
-        .signature("<user>")
+        .check(server_only)
 }
