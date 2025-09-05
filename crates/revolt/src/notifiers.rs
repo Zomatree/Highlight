@@ -68,14 +68,11 @@ impl Notifiers {
 
         for (id, waiter) in lock {
             if (waiter.check)(value) {
-                waiter
-                    .oneshot
-                    .lock()
-                    .await
-                    .take()
-                    .unwrap()
-                    .send(value.clone())
-                    .map_err(|_| Error::BrokenChannel)?;
+                if let Some(oneshot) = waiter.oneshot.lock().await.take() {
+                    oneshot
+                        .send(value.clone())
+                        .map_err(|_| Error::BrokenChannel)?;
+                }
 
                 waiters.lock().await.remove(&id);
             }

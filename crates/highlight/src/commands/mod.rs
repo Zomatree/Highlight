@@ -16,7 +16,7 @@ pub struct CommandEvents;
 impl CommandEventHandler<Error, State> for CommandEvents {
     async fn error(&self, ctx: Context<Error, State>, error: Error) -> Result<(), Error> {
         match error {
-            Error::NotInServer => {
+            Error::RevoltError(revolt::Error::NotInServer) => {
                 ctx.http
                     .send_message(&ctx.message.channel)
                     .content("This command can only be used in a server".to_string())

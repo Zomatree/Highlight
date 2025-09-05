@@ -139,7 +139,9 @@ impl EventHandler<Error> for Events {
                 let state = self.state.clone();
 
                 async move {
-                    if let Some(res) = regex.find(&content) {
+                    if let Some(captures) = regex.captures(&content) {
+                        let group = captures.get(1).unwrap();
+
                         if state
                             .fetch_blocked_users(user_id.clone())
                             .await
@@ -193,7 +195,7 @@ impl EventHandler<Error> for Events {
                         let jump_link = format!(
                             "https://app.revolt.chat/server/{server_id}/channel/{channel_id}/{message_id}"
                         );
-                        let keyword = res.as_str();
+                        let keyword = group.as_str();
 
                         let built_messages = messages
                             .messages
@@ -202,8 +204,8 @@ impl EventHandler<Error> for Events {
                                 let (is_main_message, content) = if &message.id == &message_id {
                                     let mut raw_content = message.content.clone().unwrap();
 
-                                    raw_content.insert_str(res.end(), "**");
-                                    raw_content.insert_str(res.start(), "**");
+                                    raw_content.insert_str(group.end(), "**");
+                                    raw_content.insert_str(group.start(), "**");
 
                                     (true, raw_content)
                                 } else {

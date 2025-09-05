@@ -31,7 +31,7 @@ impl<
 > Context<E, S>
 {
     pub async fn get_current_channel(&self) -> &Option<Channel> {
-        self.local_cache_async(self.cache.get_channel(&self.message.id))
+        self.local_cache_async(self.cache.get_channel(&self.message.channel))
             .await
     }
 

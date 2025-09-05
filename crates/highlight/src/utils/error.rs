@@ -4,7 +4,6 @@ use std::sync::Arc;
 pub enum Error {
     RevoltError(revolt::Error),
     PgError(Arc<sqlx::Error>),
-    NotInServer,
 }
 
 impl From<revolt::Error> for Error {
