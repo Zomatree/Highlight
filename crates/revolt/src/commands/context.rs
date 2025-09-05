@@ -31,15 +31,8 @@ impl<
 > Context<E, S>
 {
     pub async fn get_current_channel(&self) -> &Option<Channel> {
-        self.local_cache_async(async {
-            self.cache
-                .read()
-                .await
-                .channels
-                .get(&self.message.channel)
-                .cloned()
-        })
-        .await
+        self.local_cache_async(self.cache.get_channel(&self.message.id))
+            .await
     }
 
     pub async fn get_current_server(&self) -> &Option<Server> {
@@ -50,7 +43,7 @@ impl<
                 Channel::TextChannel { server, .. } | Channel::VoiceChannel { server, .. },
             ) = channel
             {
-                self.cache.read().await.servers.get(server).cloned()
+                self.cache.get_server(server).await
             } else {
                 None
             }
@@ -62,15 +55,9 @@ impl<
         self.local_cache_async(async {
             if let Some(user) = self.message.user.as_ref() {
                 Some(user.clone())
-            } else if let Some(user) = self.cache.read().await.users.get(&self.message.author) {
+            } else if let Some(user) = self.cache.get_user(&self.message.author).await {
                 Some(user.clone())
             } else if let Ok(user) = self.http.fetch_user(&self.message.author).await {
-                self.cache
-                    .write()
-                    .await
-                    .users
-                    .insert(self.message.author.clone(), user.clone());
-
                 Some(user)
             } else {
                 None
@@ -86,29 +73,13 @@ impl<
             } else {
                 let server_id = &self.get_current_server().await.as_ref()?.id;
 
-                if let Some(member) = self
-                    .cache
-                    .read()
-                    .await
-                    .members
-                    .get(server_id)
-                    .unwrap()
-                    .get(&self.message.author)
-                {
+                if let Some(member) = self.cache.get_member(server_id, &self.message.author).await {
                     Some(member.clone())
                 } else if let Ok(member) = self
                     .http
                     .fetch_member(server_id, &self.message.author)
                     .await
                 {
-                    self.cache
-                        .write()
-                        .await
-                        .members
-                        .get_mut(server_id)
-                        .unwrap()
-                        .insert(self.message.author.clone(), member.clone());
-
                     Some(member)
                 } else {
                     None

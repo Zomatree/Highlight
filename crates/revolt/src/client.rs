@@ -1,17 +1,17 @@
-use std::{fmt::Debug, marker::PhantomData, panic::AssertUnwindSafe, sync::Arc};
+use std::{fmt::Debug, marker::PhantomData, panic::AssertUnwindSafe, sync::Arc, time::Duration};
 
 use async_recursion::async_recursion;
 use futures::{FutureExt, future::join};
 use revolt_database::events::client::EventV1;
 use tokio::sync::{
-    RwLock,
     mpsc::{self, UnboundedReceiver},
 };
 
 use crate::{
     Error,
+    Context,
     cache::GlobalCache,
-    events::{Context, EventHandler, update_state},
+    events::{EventHandler, update_state},
     http::HttpClient,
     notifiers::Notifiers,
     websocket::run,
@@ -22,7 +22,7 @@ pub struct Client<
     H: EventHandler<E> + Clone + Send + Sync + 'static,
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
 > {
-    pub state: Arc<RwLock<GlobalCache>>,
+    pub state: GlobalCache,
     pub handler: Arc<H>,
     pub http: HttpClient,
     pub waiters: Notifiers,
@@ -40,7 +40,7 @@ impl<
         let api_config = http.get_root().await.unwrap();
 
         Self {
-            state: Arc::new(RwLock::new(GlobalCache::new(api_config))),
+            state: GlobalCache::new(api_config),
             handler: Arc::new(handler),
             http,
             waiters: Notifiers::default(),
@@ -48,16 +48,35 @@ impl<
         }
     }
 
-    pub async fn run(mut self, token: impl Into<String>) {
+    pub async fn run(mut self, token: impl Into<String>) -> Result<(), Error> {
         let token = token.into();
 
         self.http.token = Some(token.clone());
 
         let (sender, receiver) = mpsc::unbounded_channel();
 
-        let handle = tokio::spawn(run(sender, self.state.clone(), token));
+        let handle = tokio::spawn({
+            let sender = sender.clone();
+            let state = self.state.clone();
+            let token = token.clone();
 
-        join(handle, self.handle_events(receiver)).await.0.unwrap();
+            async move {
+                loop {
+                    if let Err(e) = run(sender.clone(), state.clone(), token.clone()).await {
+                        println!("{e:?}");
+                    }
+
+                    println!("Disconnected! Reconnecting in 10 seconds.");
+
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                };
+
+                #[allow(unreachable_code)]
+                Ok(())
+            }
+        });
+
+        join(handle, self.handle_events(receiver)).await.0.unwrap()
     }
 
     pub async fn handle_events(self, mut receiver: UnboundedReceiver<EventV1>) {
@@ -71,18 +90,15 @@ impl<
     }
 
     pub async fn handle_event(&self, event: EventV1) {
-        {
-            let mut state = self.state.write().await;
-            update_state(event.clone(), &mut state);
-        }
-
-        let context = Context {
-            cache: self.state.clone(),
-            http: self.http.clone(),
-            notifiers: self.waiters.clone(),
-        };
-
         let wrapper = AssertUnwindSafe(async {
+            update_state(event.clone(), self.state.clone()).await;
+
+            let context = Context {
+                cache: self.state.clone(),
+                http: self.http.clone(),
+                notifiers: self.waiters.clone(),
+            };
+
             if let Err(e) = self.call_event(context.clone(), event).await {
                 self.handler.error(context, e).await;
             }

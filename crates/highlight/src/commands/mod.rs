@@ -7,6 +7,7 @@ use crate::{Error, State};
 
 mod help;
 mod highlight;
+mod info;
 
 #[derive(Clone)]
 pub struct CommandEvents;
@@ -57,5 +58,6 @@ pub fn commands() -> Vec<Command<Error, State>> {
         Command::new("test", test).description("Test command."),
         help::command(),
         highlight::command(),
+        info::command(),
     ]
 }

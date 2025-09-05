@@ -50,9 +50,8 @@ impl<
             let server = context.get_current_server().await.as_ref();
             let member = context.get_member().await.as_ref();
 
-            let mut cache = context.cache.write().await;
-            let mut query =
-                user_permissions_query(&mut cache, context.http.clone(), Cow::Borrowed(user))
+            let mut query = user_permissions_query(context.cache.clone(), context.http.clone(), Cow::Borrowed(user))
+                    .await
                     .channel(Cow::Borrowed(channel));
 
             if let Some(server) = server {

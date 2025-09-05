@@ -1,14 +1,13 @@
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{fmt::Debug};
 
 use async_trait::async_trait;
 use revolt_database::events::client::EventV1;
 use revolt_models::v0::{
-    Channel, FieldsChannel, FieldsMessage, FieldsUser, Member, Message, RelationshipStatus,
+    Channel, FieldsChannel, FieldsMessage, FieldsUser, Message, RelationshipStatus,
     RemovalIntention,
 };
-use tokio::sync::{Mutex, RwLock};
 
-use crate::{cache::GlobalCache, http::HttpClient, notifiers::Notifiers};
+use crate::{cache::GlobalCache, Context};
 
 macro_rules! set_enum_varient_values {
     ($enum: ident, $key: ident, $value: expr, ($($varient: path),+)) => {
@@ -37,11 +36,11 @@ macro_rules! update_multi_enum_partial {
     };
 }
 
-pub fn update_state(event: EventV1, state: &mut GlobalCache) {
+pub async fn update_state(event: EventV1, state: GlobalCache) {
     match event {
         EventV1::Bulk { v } => {
             for e in v {
-                update_state(e, state)
+                Box::pin(update_state(e, state.clone())).await
             }
         }
         EventV1::Authenticated => {}
@@ -59,45 +58,26 @@ pub fn update_state(event: EventV1, state: &mut GlobalCache) {
         } => {
             for user in users.into_iter().flatten() {
                 if user.relationship == RelationshipStatus::User {
-                    state.current_user = Some(user.clone());
+                    state.current_user_id.write().await.replace(user.id.clone());
                 };
 
-                state.users.insert(user.id.clone(), user);
+                state.insert_user(user).await;
             }
 
             for server in servers.into_iter().flatten() {
-                state.members.insert(server.id.clone(), HashMap::new());
-                state.servers.insert(server.id.clone(), server);
+                state.insert_server(server).await;
             }
 
             for channel in channels.into_iter().flatten() {
-                state.channels.insert(channel.id().to_string(), channel);
+                state.insert_channel(channel).await;
             }
 
             for member in members.into_iter().flatten() {
-                state
-                    .members
-                    .get_mut(&member.id.server)
-                    .map(|members| members.insert(member.id.user.clone(), member));
+                state.insert_member(member).await;
             }
         }
-        EventV1::Message(mut message) => {
-            if let Some(user) = message.user.take() {
-                state.users.insert(user.id.clone(), user);
-            };
-
-            if let Some(member) = message.member.take() {
-                state
-                    .members
-                    .get_mut(&member.id.server)
-                    .map(|members| members.insert(member.id.user.clone(), member));
-            };
-
-            state.messages.push_front(message);
-
-            if state.messages.len() > 1000 {
-                state.messages.pop_back();
-            }
+        EventV1::Message(message) => {
+            state.insert_message(message).await;
         }
         EventV1::MessageUpdate {
             id,
@@ -105,7 +85,7 @@ pub fn update_state(event: EventV1, state: &mut GlobalCache) {
             data,
             clear,
         } => {
-            if let Some(message) = state.messages.iter_mut().find(|m| m.id == id) {
+            state.update_message_with(&id, |message| {
                 message.apply_options(data);
 
                 for field in clear {
@@ -113,12 +93,12 @@ pub fn update_state(event: EventV1, state: &mut GlobalCache) {
                         FieldsMessage::Pinned => message.pinned = None,
                     }
                 }
-            }
+            }).await
         }
         EventV1::UserUpdate {
             id, data, clear, ..
         } => {
-            if let Some(user) = state.users.get_mut(&id) {
+            state.update_user_with(&id, |user| {
                 user.apply_options(data);
 
                 for field in clear {
@@ -138,57 +118,50 @@ pub fn update_state(event: EventV1, state: &mut GlobalCache) {
                         _ => {}
                     }
                 }
-            }
+            }).await
         }
         EventV1::BulkMessageDelete { channel: _, ids } => {
-            state.messages.retain(|m| !ids.contains(&m.id));
+            state.messages.write().await.retain(|m| !ids.contains(&m.id));
         }
         EventV1::ChannelAck { .. } => {}
         EventV1::ChannelCreate(channel) => {
             match &channel {
                 Channel::TextChannel { id, server, .. }
                 | Channel::VoiceChannel { id, server, .. } => {
-                    state
-                        .servers
-                        .get_mut(server)
-                        .unwrap()
-                        .channels
-                        .push(id.to_string());
+                    state.update_server_with(&server, |server| server.channels.push(id.to_string())).await
                 }
                 _ => {}
             };
 
-            state.channels.insert(channel.id().to_string(), channel);
+            state.insert_channel(channel).await;
         }
         EventV1::ChannelDelete { id } => {
-            if let Some(channel) = state.channels.remove(&id) {
+            if let Some(channel) = state.remove_channel(&id).await {
                 match &channel {
                     Channel::TextChannel { id, server, .. }
                     | Channel::VoiceChannel { id, server, .. } => {
-                        let server = state.servers.get_mut(server).unwrap();
-
-                        server.channels.retain(|c_id| c_id != id)
+                        state.update_server_with(&server, |server| server.channels.retain(|c_id| c_id != id)).await
                     }
                     _ => {}
                 };
             }
         }
         EventV1::ChannelGroupJoin { id, user } => {
-            if let Some(channel) = state.channels.get_mut(&id) {
+            state.update_channel_with(&id, |channel| {
                 if let Channel::Group { recipients, .. } = channel {
                     recipients.push(user)
                 }
-            }
+            }).await
         }
         EventV1::ChannelGroupLeave { id, user } => {
-            if let Some(channel) = state.channels.get_mut(&id) {
+            state.update_channel_with(&id, |channel| {
                 if let Channel::Group { recipients, .. } = channel {
                     recipients.retain(|u_id| u_id != &user)
                 }
-            }
+            }).await
         }
         EventV1::ChannelUpdate { id, data, clear } => {
-            if let Some(channel) = state.channels.get_mut(&id) {
+            state.update_channel_with(&id, |channel| {
                 update_multi_enum_partial!(
                     channel,
                     data,
@@ -246,18 +219,18 @@ pub fn update_state(event: EventV1, state: &mut GlobalCache) {
                         ),
                     }
                 }
-            }
+            }).await
         }
         EventV1::MessageAppend {
             id,
             channel: _,
             append,
         } => {
-            if let Some(message) = state.messages.iter_mut().find(|m| m.id == id) {
+            state.update_message_with(&id, |message| {
                 if let Some(embeds) = append.embeds {
                     message.embeds.get_or_insert_default().extend(embeds);
                 }
-            }
+            }).await
         }
         EventV1::ServerCreate {
             id,
@@ -265,16 +238,16 @@ pub fn update_state(event: EventV1, state: &mut GlobalCache) {
             channels,
             emojis: _,
         } => {
-            state.servers.insert(id, server);
+            state.insert_server(server).await;
 
             for channel in channels {
-                state.channels.insert(channel.id().to_string(), channel);
+                state.insert_channel(channel).await
             }
         }
         EventV1::ServerDelete { id } => {
-            if let Some(server) = state.servers.remove(&id) {
+            if let Some(server) = state.remove_server(&id).await {
                 for channel in server.channels {
-                    state.channels.remove(&channel);
+                    state.remove_channel(&channel).await;
                 }
             }
         }
@@ -285,13 +258,6 @@ pub fn update_state(event: EventV1, state: &mut GlobalCache) {
             println!("Unhandled Event {:?}", event);
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Context {
-    pub cache: Arc<RwLock<GlobalCache>>,
-    pub http: HttpClient,
-    pub notifiers: Notifiers,
 }
 
 #[async_trait]

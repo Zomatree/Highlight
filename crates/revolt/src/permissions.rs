@@ -14,7 +14,7 @@ pub use revolt_permissions::{
 };
 
 pub struct PermissionQuery<'a> {
-    cache: &'a mut GlobalCache,
+    cache: GlobalCache,
     http: HttpClient,
 
     perspective: Cow<'a, User>,
@@ -25,7 +25,7 @@ pub struct PermissionQuery<'a> {
 }
 
 impl<'a> PermissionQuery<'a> {
-    pub fn new(cache: &'a mut GlobalCache, http: HttpClient, perspective: Cow<'a, User>) -> Self {
+    pub fn new(cache: GlobalCache, http: HttpClient, perspective: Cow<'a, User>) -> Self {
         Self {
             cache,
             http,
@@ -152,11 +152,7 @@ impl revolt_permissions::PermissionQuery for PermissionQuery<'_> {
         if let Some(server) = &self.server {
             if self.member.is_some() {
                 true
-            } else if let Some(member) = self
-                .cache
-                .members
-                .get(&server.id)
-                .and_then(|members| members.get(&self.perspective.id))
+            } else if let Some(member) = self.cache.get_member(&server.id, &self.perspective.id).await
             {
                 self.member = Some(Cow::Owned(member.clone()));
 
@@ -365,7 +361,7 @@ impl revolt_permissions::PermissionQuery for PermissionQuery<'_> {
                         .find(|recipient| recipient != &&self.perspective.id)
                         .expect("Missing recipient for DM");
 
-                    if let Some(user) = self.cache.users.get(recipient_id) {
+                    if let Some(user) = self.cache.get_user(recipient_id).await {
                         self.user.replace(Cow::Owned(user.clone()));
                     } else if let Ok(user) = self.http.fetch_user(recipient_id).await {
                         self.user.replace(Cow::Owned(user));
@@ -392,7 +388,7 @@ impl revolt_permissions::PermissionQuery for PermissionQuery<'_> {
                         }
                     }
 
-                    if let Some(server) = self.cache.servers.get(server) {
+                    if let Some(server) = self.cache.get_server(server).await {
                         self.server.replace(Cow::Owned(server.clone()));
                     }
                 }
@@ -402,12 +398,12 @@ impl revolt_permissions::PermissionQuery for PermissionQuery<'_> {
     }
 }
 
-pub fn user_permissions_query<'a>(
-    cache: &'a mut GlobalCache,
+pub async fn user_permissions_query<'a>(
+    cache: GlobalCache,
     http: HttpClient,
     user: Cow<'a, User>,
 ) -> PermissionQuery<'a> {
-    let ourself = cache.current_user.clone().unwrap();
+    let ourself = cache.get_current_user().await.unwrap();
 
     PermissionQuery::new(cache, http, Cow::Owned(ourself)).user(user)
 }

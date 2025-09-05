@@ -34,14 +34,7 @@ impl EventHandler<Error> for Events {
             return Ok(());
         };
 
-        let channel = ctx
-            .cache
-            .read()
-            .await
-            .channels
-            .get(&message.channel)
-            .unwrap()
-            .clone();
+        let channel = ctx.cache.get_channel(&message.channel).await.unwrap();
 
         let server_id = match &channel {
             Channel::TextChannel { server, .. } | Channel::VoiceChannel { server, .. } => {
@@ -52,12 +45,9 @@ impl EventHandler<Error> for Events {
 
         let server = ctx
             .cache
-            .read()
+            .get_server(&server_id)
             .await
-            .servers
-            .get(&server_id)
-            .unwrap()
-            .clone();
+            .unwrap();
 
         let regexes = self.state.get_keywords(server_id.clone()).await?;
         let known_not_in_server = self
@@ -75,14 +65,12 @@ impl EventHandler<Error> for Events {
             };
 
             let permissions = {
-                let mut cache = ctx.cache.write().await;
-
-                let user = if let Some(user) = cache.users.get(&user_id) {
-                    user.clone()
+                let user = if let Some(user) = ctx.cache.get_user(&user_id).await {
+                    user
                 } else if let Ok(user) = ctx.http.fetch_user(&user_id).await {
-                    cache.users.insert(user.id.clone(), user.clone());
+                    ctx.cache.insert_user(user.clone()).await;
 
-                    user.clone()
+                    user
                 } else {
                     self.state
                         .known_not_in_server
@@ -95,20 +83,11 @@ impl EventHandler<Error> for Events {
                     continue;
                 };
 
-                let member = if let Some(member) = cache
-                    .members
-                    .get(&server_id)
-                    .as_ref()
-                    .unwrap()
-                    .get(&user_id)
+                let member = if let Some(member) = ctx.cache.get_member(&server_id, &user_id).await
                 {
                     member.clone()
                 } else if let Ok(member) = ctx.http.fetch_member(&server_id, &user_id).await {
-                    cache
-                        .members
-                        .get_mut(&server_id)
-                        .unwrap()
-                        .insert(user_id.clone(), member.clone());
+                    ctx.cache.insert_member(member.clone()).await;
 
                     member
                 } else {
@@ -124,7 +103,8 @@ impl EventHandler<Error> for Events {
                 };
 
                 let mut query =
-                    user_permissions_query(&mut cache, ctx.http.clone(), Cow::Owned(user))
+                    user_permissions_query(ctx.cache.clone(), ctx.http.clone(), Cow::Owned(user))
+                        .await
                         .channel(Cow::Borrowed(&channel))
                         .server(Cow::Borrowed(&server))
                         .member(Cow::Borrowed(&member));
@@ -145,16 +125,14 @@ impl EventHandler<Error> for Events {
                 let content = content.clone();
                 let message_author = message.author.clone();
 
-                let cache = ctx.cache.read().await;
-                let server_name = cache.servers.get(&server_id).unwrap().name.clone();
-                let channel_name = cache
-                    .channels
-                    .get(&channel_id)
+                let server_name = ctx.cache.get_server(&server_id).await.unwrap().name;
+                let channel_name = ctx.cache
+                    .get_channel(&channel_id)
+                    .await
                     .unwrap()
                     .name()
                     .unwrap()
                     .to_string();
-                drop(cache);
 
                 let waiters = ctx.notifiers.clone();
                 let http = ctx.http.clone();

@@ -24,5 +24,5 @@ async fn main() {
 
     let client = Client::new(events, &state.config.revolt.api).await;
 
-    client.run(&state.config.bot.token).await;
+    client.run(&state.config.bot.token).await.unwrap();
 }

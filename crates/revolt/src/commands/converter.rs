@@ -57,15 +57,11 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
         {
             let id = captures.get(1).unwrap().as_str();
 
-            let user = context.cache.read().await.users.get(id).cloned();
+            let user = context.cache.get_user(id).await;
 
             if let Some(user) = user {
                 return Ok(user.clone());
-            } else {
-                let mut cache = context.cache.write().await;
-                let user = context.http.fetch_user(id).await?;
-                cache.users.insert(user.id.clone(), user.clone());
-
+            } else if let Ok(user) = context.http.fetch_user(id).await {
                 return Ok(user);
             };
         };
@@ -84,10 +80,9 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
             .or_else(|| ID_REGEX.captures(&input))
         {
             let id = captures.get(1).unwrap().as_str();
-            let cache = context.cache.read().await;
 
-            if let Some(channel) = cache.channels.get(id) {
-                return Ok(channel.clone());
+            if let Some(channel) = context.cache.get_channel(id).await {
+                return Ok(channel)
             }
         };
 

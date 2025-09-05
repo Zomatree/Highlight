@@ -3,7 +3,7 @@ use revolt_database::events::client::{EventV1, Ping};
 use serde::Serialize;
 use std::{sync::Arc, time::Duration};
 use tokio::{
-    sync::{Mutex, RwLock, mpsc::UnboundedSender},
+    sync::{Mutex, mpsc::UnboundedSender},
     time::sleep,
 };
 use tokio_tungstenite::connect_async;
@@ -33,53 +33,57 @@ macro_rules! send {
 
 pub async fn run(
     events: UnboundedSender<EventV1>,
-    global_state: Arc<RwLock<GlobalCache>>,
+    global_state: GlobalCache,
     token: String,
-) {
-    let ws = {
-        let state = global_state.read().await;
-
-        connect_async(&state.api_config.ws).await.unwrap().0
-    };
+) -> Result<(), tungstenite::Error> {
+    let (ws, _) = connect_async(&global_state.api_config.ws).await?;
 
     let (ws_send, mut ws_receive) = ws.split();
 
     let ws_send = Arc::new(Mutex::new(ws_send));
 
-    send!(ws_send, &ClientMessage::Authenticate { token }).unwrap();
+    send!(ws_send, &ClientMessage::Authenticate { token })?;
 
-    tokio::spawn(async move {
-        while let Some(Ok(msg)) = ws_receive.next().await {
-            if let Ok(data) = msg.to_text() {
-                let event = serde_json::from_str(data).unwrap();
+    let mut heartbeat_handle = None;
 
-                if let EventV1::Authenticated = &event {
-                    tokio::spawn({
-                        let ws = ws_send.clone();
-                        let mut i = 0;
+    while let Some(Ok(msg)) = ws_receive.next().await {
+        if let Ok(data) = msg.to_text() {
+            let event = serde_json::from_str(data).unwrap();
 
-                        async move {
-                            loop {
-                                send!(
-                                    ws,
-                                    &ClientMessage::Ping {
-                                        data: Ping::Number(i),
-                                        responded: None
-                                    }
-                                )?;
-                                i = i.wrapping_add(1);
+            if let EventV1::Authenticated = &event {
+                heartbeat_handle = Some(tokio::spawn({
+                    let ws = ws_send.clone();
+                    let mut i = 0;
 
-                                sleep(Duration::from_secs(30)).await;
-                            }
+                    async move {
+                        loop {
+                            send!(
+                                ws,
+                                &ClientMessage::Ping {
+                                    data: Ping::Number(i),
+                                    responded: None
+                                }
+                            )?;
+                            i = i.wrapping_add(1);
 
-                            #[allow(unreachable_code)]
-                            Ok::<(), tungstenite::Error>(())
+                            sleep(Duration::from_secs(30)).await;
                         }
-                    });
-                };
 
-                events.send(event).unwrap();
-            }
+                        #[allow(unreachable_code)]
+                        Ok::<(), tungstenite::Error>(())
+                    }
+                }));
+            };
+
+            events.send(event).unwrap();
+        } else {
+            println!("Unexpected WS message: {:?}", msg.into_data())
         }
-    });
+    };
+
+    if let Some(handle) = heartbeat_handle {
+        handle.abort();
+    };
+
+    Ok(())
 }

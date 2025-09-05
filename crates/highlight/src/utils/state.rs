@@ -225,4 +225,11 @@ impl State {
             Ok(set)
         }
     }
+
+    pub async fn get_total_keyword_count(&self) -> Result<i64, Error> {
+        sqlx::query_scalar::<_, i64>("select count(keyword) from highlights")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| e.into())
+    }
 }
