@@ -2,7 +2,7 @@ use std::{fmt::Debug, sync::LazyLock};
 
 use async_trait::async_trait;
 use regex::Regex;
-use revolt_models::v0::{Channel, User};
+use revolt_models::v0::{Channel, Member, Role, User};
 
 use crate::{Error, commands::Context};
 
@@ -12,6 +12,8 @@ static USER_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^<@([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})>$").unwrap());
 static CHANNEL_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^<#([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})>$").unwrap());
+static ROLE_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^<%([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})>$").unwrap());
 
 #[async_trait]
 pub trait Converter<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync>:
@@ -87,6 +89,49 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
         };
 
         Err(Error::ConverterError("Channel not found".to_string()).into())
+    }
+}
+
+#[async_trait]
+impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
+    for Role
+{
+    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
+        let Some(server) = context.get_current_server().await else {
+            return Err(Error::ConverterError("Role not found".to_string()).into())
+        };
+
+        if let Some(captures) = ROLE_REGEX
+            .captures(&input)
+            .or_else(|| ID_REGEX.captures(&input))
+        {
+            let id = captures.get(1).unwrap().as_str();
+
+            if let Some(role) = server.roles.get(id) {
+                return Ok(role.clone())
+            }
+        };
+
+        Err(Error::ConverterError("Role not found".to_string()).into())
+    }
+}
+
+#[async_trait]
+impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
+    for Member
+{
+    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
+        if let Some(server) = context.get_current_server().await {
+            let user = <User as Converter<E, S>>::convert(context, input).await?;
+
+            if let Some(member) = context.cache.get_member(&server.id, &user.id).await {
+                return Ok(member)
+            } else if let Ok(member) = context.http.fetch_member(&server.id, &user.id).await {
+                return Ok(member)
+            };
+        };
+
+        Err(Error::ConverterError("Member not found".to_string()).into())
     }
 }
 

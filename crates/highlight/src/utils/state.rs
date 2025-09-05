@@ -1,7 +1,7 @@
 use futures::{TryStreamExt, lock::Mutex};
 use lru::LruCache;
 use regex::Regex;
-use sqlx::{PgPool, postgres::PgConnectOptions};
+use sqlx::PgPool;
 use std::{
     collections::{HashMap, HashSet},
     num::NonZero,

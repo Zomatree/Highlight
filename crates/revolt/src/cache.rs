@@ -153,6 +153,16 @@ impl GlobalCache {
             .map(f);
     }
 
+    pub async fn remove_message(&self, message_id: &str) -> Option<Message> {
+        let mut messages = self.messages.write().await;
+
+        if let Some((idx, _)) = messages.iter().enumerate().find(|(_, msg)| &msg.id == message_id) {
+            messages.remove(idx)
+        } else {
+            None
+        }
+    }
+
     pub async fn get_current_user(&self) -> Option<User> {
         let guard = self.current_user_id.read().await;
 

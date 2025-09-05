@@ -3,8 +3,7 @@ use std::{fmt::Debug};
 use async_trait::async_trait;
 use revolt_database::events::client::EventV1;
 use revolt_models::v0::{
-    Channel, FieldsChannel, FieldsMessage, FieldsUser, Message, RelationshipStatus,
-    RemovalIntention,
+    Channel, FieldsChannel, FieldsMessage, FieldsRole, FieldsServer, FieldsUser, Message, RelationshipStatus, RemovalIntention
 };
 
 use crate::{cache::GlobalCache, Context};
@@ -93,6 +92,30 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
                         FieldsMessage::Pinned => message.pinned = None,
                     }
                 }
+            }).await
+        }
+        EventV1::MessageDelete { id, channel } => {
+            state.remove_message(&id).await;
+        }
+        EventV1::MessageReact { id, channel_id, user_id, emoji_id } => {
+            state.update_message_with(&id, |message| {
+                message.reactions.entry(emoji_id).or_default().insert(user_id);
+            }).await
+        }
+        EventV1::MessageUnreact { id, channel_id, user_id, emoji_id } => {
+            state.update_message_with(&id, |message| {
+                if let Some(users) = message.reactions.get_mut(&emoji_id) {
+                    users.remove(&user_id);
+
+                    if users.is_empty() {
+                        message.reactions.remove(&emoji_id);
+                    };
+                }
+            }).await
+        }
+        EventV1::MessageRemoveReaction { id, channel_id, emoji_id } => {
+            state.update_message_with(&id, |message| {
+                message.reactions.remove(&emoji_id);
             }).await
         }
         EventV1::UserUpdate {
@@ -251,12 +274,55 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
                 }
             }
         }
+        EventV1::ServerUpdate { id, data, clear } => {
+            state.update_server_with(&id, |server| {
+                server.apply_options(data);
+
+                for field in clear {
+                    match field {
+                        FieldsServer::Description => server.description = None,
+                        FieldsServer::Categories => server.categories = None,
+                        FieldsServer::SystemMessages => server.system_messages = None,
+                        FieldsServer::Icon => server.icon = None,
+                        FieldsServer::Banner => server.banner = None,
+                    }
+                }
+            }).await
+        }
         EventV1::ServerMemberJoin { id, user } => {
             // TODO insert member when update is out
         }
-        event => {
-            println!("Unhandled Event {:?}", event);
+        EventV1::ServerMemberLeave { id, user, reason } => {
+            state.remove_member(&id, &user).await;
         }
+        EventV1::ServerRoleUpdate { id, role_id, data, clear } => {
+            state.update_server_with(&id, |server| {
+                if let Some(role) = server.roles.get_mut(&role_id) {
+                    role.apply_options(data);
+
+                    for field in clear {
+                        match field {
+                            FieldsRole::Colour => role.colour = None,
+                        }
+                    }
+                }
+            }).await
+        }
+        EventV1::ServerRoleDelete { id, role_id } => {
+            state.update_server_with(&id, |server| {
+                server.roles.remove(&role_id);
+            }).await
+        }
+        EventV1::ServerRoleRanksUpdate { id, ranks } => {
+            state.update_server_with(&id, |server| {
+                for (idx, role_id) in ranks.iter().enumerate() {
+                    if let Some(role) = server.roles.get_mut(role_id) {
+                        role.rank = idx as i64;
+                    };
+                }
+            }).await
+        }
+        _ => {}
     }
 }
 
