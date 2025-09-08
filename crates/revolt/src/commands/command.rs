@@ -10,14 +10,11 @@ use async_trait::async_trait;
 
 use crate::{
     Error,
-    commands::{Context, Converter, checks::Check},
+    commands::{CommandHandler, Context, Converter, checks::Check},
 };
 
 #[derive(Clone)]
-pub struct Command<
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static,
-> {
+pub struct Command<E, S> {
     pub name: String,
     pub handle: Arc<Box<dyn CommandHandle<(), E, S>>>,
     pub children: HashMap<String, Command<E, S>>,
@@ -27,11 +24,7 @@ pub struct Command<
     pub signature: Option<String>,
 }
 
-impl<
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static,
-> fmt::Debug for Command<E, S>
-{
+impl<E, S> fmt::Debug for Command<E, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Command")
             .field("name", &self.name)
@@ -127,12 +120,7 @@ impl<
 }
 
 #[async_trait]
-pub trait CommandHandle<
-    T,
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static,
->: Send + Sync + 'static
-{
+pub trait CommandHandle<T, E, S>: Send + Sync + 'static {
     async fn handle(&self, context: Context<E, S>) -> Result<(), E>;
 }
 

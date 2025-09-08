@@ -10,28 +10,27 @@ use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio::sync::RwLock;
 
 #[derive(Clone)]
-pub struct CommandHandler<
-    H: CommandEventHandler<E, S> + Clone + Send + Sync + 'static,
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static,
-> {
+pub struct CommandHandler<H: CommandEventHandler + Clone + Send + Sync + 'static> {
     prefix: Arc<
         Box<
-            dyn for<'a> Fn(&'a MessageContext, &'a Message) -> BoxFuture<'a, Result<Vec<String>, E>>
+            dyn for<'a> Fn(
+                    &'a MessageContext,
+                    &'a Message,
+                ) -> BoxFuture<'a, Result<Vec<String>, H::Error>>
                 + Send
                 + Sync,
         >,
     >,
-    commands: Commands<E, S>,
+    commands: Commands<H::Error, H::State>,
     event_handler: H,
-    state: S,
+    state: H::State,
 }
 
 impl<
-    H: CommandEventHandler<E, S> + Clone + Send + Sync,
+    H: CommandEventHandler<State = S, Error = E> + Clone + Send + Sync,
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
     S: Debug + Clone + Send + Sync + 'static,
-> CommandHandler<H, E, S>
+> CommandHandler<H>
 {
     pub fn new(event_handler: H, state: S) -> Self {
         Self {
@@ -115,7 +114,7 @@ impl<
             state: self.state.clone(),
             words,
             commands: self.commands.clone(),
-            local_state: Arc::new(<TypeMap![Send + Sync]>::new())
+            local_state: Arc::new(<TypeMap![Send + Sync]>::new()),
         };
 
         if cmd_context.command.is_none() {
@@ -157,10 +156,7 @@ impl<
 }
 
 #[derive(Debug, Clone)]
-pub struct Commands<
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static,
-> {
+pub struct Commands<E, S> {
     mapping: Arc<RwLock<HashMap<String, Command<E, S>>>>,
 }
 

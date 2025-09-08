@@ -1,20 +1,21 @@
-use std::{fmt::Debug, ops::Deref, sync::Arc};
+use std::{borrow::Cow, fmt::Debug, ops::Deref, sync::Arc};
 
 use revolt_models::v0::{Channel, Member, Message, Server, User};
+use revolt_permissions::{
+    PermissionValue, calculate_channel_permissions, calculate_server_permissions,
+};
 use state::TypeMap;
 
 use crate::{
-    Context as MessageContext, Error,
+    Context as MessageContext,
     commands::{Command, Words, handler::Commands},
+    permissions::user_permissions_query,
 };
 
 type SendSyncMap = TypeMap![Send + Sync];
 
 #[derive(Debug, Clone)]
-pub struct Context<
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static,
-> {
+pub struct Context<E, S> {
     pub(crate) inner: MessageContext,
     pub prefix: String,
     pub command: Option<Command<E, S>>,
@@ -25,11 +26,27 @@ pub struct Context<
     pub(crate) local_state: Arc<SendSyncMap>,
 }
 
-impl<
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static,
-> Context<E, S>
-{
+impl<E, S> Context<E, S> {
+    pub fn local_cache<F: FnOnce() -> T, T: Send + Sync + 'static>(&self, f: F) -> &T {
+        self.local_state.try_get().unwrap_or_else(|| {
+            self.local_state.set(f());
+            self.local_state.get()
+        })
+    }
+
+    pub async fn local_cache_async<Fut: Future<Output = T>, T: Send + Sync + 'static>(
+        &self,
+        fut: Fut,
+    ) -> &T {
+        match self.local_state.try_get() {
+            Some(s) => s,
+            None => {
+                self.local_state.set(fut.await);
+                self.local_state.get()
+            }
+        }
+    }
+
     pub async fn get_current_channel(&self) -> &Option<Channel> {
         self.local_cache_async(self.cache.get_channel(&self.message.channel))
             .await
@@ -89,30 +106,68 @@ impl<
         .await
     }
 
-    pub fn local_cache<F: FnOnce() -> T, T: Send + Sync + 'static>(&self, f: F) -> &T {
-        self.local_state.try_get().unwrap_or_else(|| {
-            self.local_state.set(f());
-            self.local_state.get()
+    pub async fn get_author_channel_permissions(&self) -> PermissionValue {
+        self.local_cache_async(async {
+            struct ChannelPermissions(PermissionValue);
+
+            let Some(user) = self.get_user().await else {
+                return ChannelPermissions(0u64.into());
+            };
+            let member = self.get_member().await;
+            let Some(channel) = self.get_current_channel().await else {
+                return ChannelPermissions(0u64.into());
+            };
+            let server = self.get_current_server().await;
+
+            let mut query =
+                user_permissions_query(self.cache.clone(), self.http.clone(), Cow::Borrowed(user))
+                    .await
+                    .channel(Cow::Borrowed(channel));
+
+            if let Some(server) = server {
+                query = query.server(Cow::Borrowed(server))
+            };
+
+            if let Some(member) = member {
+                query = query.member(Cow::Borrowed(member))
+            };
+
+            ChannelPermissions(calculate_channel_permissions(&mut query).await)
         })
+        .await
+        .0
     }
 
-    pub async fn local_cache_async<Fut: Future<Output = T>, T: Send + Sync + 'static>(
-        &self,
-        fut: Fut,
-    ) -> &T {
-        match self.local_state.try_get() {
-            Some(s) => s,
-            None => {
-                self.local_state.set(fut.await);
-                self.local_state.get()
-            }
-        }
+    pub async fn get_author_server_permissions(&self) -> PermissionValue {
+        self.local_cache_async(async {
+            struct ServerPermissions(PermissionValue);
+
+            let Some(user) = self.get_user().await else {
+                return ServerPermissions(0u64.into());
+            };
+            let member = self.get_member().await;
+            let server = self.get_current_server().await;
+
+            let mut query =
+                user_permissions_query(self.cache.clone(), self.http.clone(), Cow::Borrowed(user))
+                    .await;
+
+            if let Some(server) = server {
+                query = query.server(Cow::Borrowed(server))
+            };
+
+            if let Some(member) = member {
+                query = query.member(Cow::Borrowed(member))
+            };
+
+            ServerPermissions(calculate_server_permissions(&mut query).await)
+        })
+        .await
+        .0
     }
 }
 
-impl<E: From<Error> + Clone + Debug + Send + Sync + 'static, S: Debug + Clone + Send + Sync> Deref
-    for Context<E, S>
-{
+impl<E, S> Deref for Context<E, S> {
     type Target = MessageContext;
 
     fn deref(&self) -> &Self::Target {

@@ -26,9 +26,7 @@ impl State {
             toml::from_str::<Config>(&std::fs::read_to_string("Highlight.toml").unwrap()).unwrap(),
         );
 
-        let pool = PgPool::connect(&config.database.url)
-        .await
-        .unwrap();
+        let pool = PgPool::connect(&config.database.url).await.unwrap();
 
         let cached_keywords = Arc::new(Mutex::new(LruCache::new(NonZero::new(1000).unwrap())));
         let cached_blocked = Arc::new(Mutex::new(LruCache::new(NonZero::new(1000).unwrap())));

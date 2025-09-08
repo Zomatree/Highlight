@@ -1,18 +1,14 @@
-use std::{borrow::Cow, fmt::Debug, sync::Arc};
+use std::{fmt::Debug, sync::Arc};
 
 use async_fn_traits::AsyncFn1;
 use async_trait::async_trait;
 use revolt_models::v0::Channel;
-use revolt_permissions::{ChannelPermission, calculate_channel_permissions};
+use revolt_permissions::ChannelPermission;
 
-use crate::{Error, commands::Context, permissions::user_permissions_query};
+use crate::{Error, commands::Context};
 
 #[async_trait]
-pub trait Check<
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static,
->: Send + Sync + 'static
-{
+pub trait Check<E, S>: Send + Sync + 'static {
     async fn run(&self, context: Context<E, S>) -> Result<bool, E>;
 }
 
@@ -39,35 +35,39 @@ impl HasChannelPermissions {
 
 #[async_trait]
 impl<
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static,
+    E: From<Error> + Send + Sync + 'static,
+    S: Send + Sync + 'static,
 > Check<E, S> for HasChannelPermissions
 {
     async fn run(&self, context: Context<E, S>) -> Result<bool, E> {
-        let permissions = || async move {
-            let user = context.get_user().await.as_ref()?;
-            let channel = context.get_current_channel().await.as_ref()?;
-            let server = context.get_current_server().await.as_ref();
-            let member = context.get_member().await.as_ref();
+        let permissions = context.get_author_channel_permissions().await;
 
-            let mut query = user_permissions_query(context.cache.clone(), context.http.clone(), Cow::Borrowed(user))
-                    .await
-                    .channel(Cow::Borrowed(channel));
-
-            if let Some(server) = server {
-                query = query.server(Cow::Borrowed(server));
+        for perm in &self.0 {
+            if !permissions.has(*perm as u64) {
+                return Err(Error::MissingChannelPermission { permissions: *perm }.into());
             };
+        }
 
-            if let Some(member) = member {
-                query = query.member(Cow::Borrowed(member));
-            };
+        Ok(true)
+    }
+}
 
-            Some(calculate_channel_permissions(&mut query).await)
-        };
+pub struct HasServerPermissions(Vec<ChannelPermission>);
 
-        let Some(permissions) = permissions().await else {
-            return Err(Error::CheckFailure.into())
-        };
+impl HasServerPermissions {
+    pub fn new(permissions: Vec<ChannelPermission>) -> Self {
+        Self(permissions)
+    }
+}
+
+#[async_trait]
+impl<
+    E: From<Error> + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> Check<E, S> for HasServerPermissions
+{
+    async fn run(&self, context: Context<E, S>) -> Result<bool, E> {
+        let permissions = context.get_author_server_permissions().await;
 
         for perm in &self.0 {
             if !permissions.has(*perm as u64) {
@@ -83,8 +83,8 @@ pub struct CheckAny<E, S>(pub Arc<Vec<Box<dyn Check<E, S>>>>);
 
 #[async_trait]
 impl<
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static,
+    E: From<Error> + Clone + Send + Sync + 'static,
+    S: Clone + Send + Sync + 'static,
 > Check<E, S> for CheckAny<E, S>
 {
     async fn run(&self, context: Context<E, S>) -> Result<bool, E> {
@@ -105,25 +105,27 @@ impl<E, S> CheckAny<E, S> {
 }
 
 pub async fn server_only<
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static
->(context: Context<E, S>) -> Result<bool, E> {
+    E: From<Error> + Send + Sync + 'static,
+    S: Send + Sync + 'static,
+>(
+    context: Context<E, S>,
+) -> Result<bool, E> {
     match context.get_current_channel().await {
-        Some(Channel::TextChannel { .. } | Channel::VoiceChannel { .. }) => {
-            Ok(true)
-        }
+        Some(Channel::TextChannel { .. } | Channel::VoiceChannel { .. }) => Ok(true),
         _ => Err(Error::NotInServer.into()),
     }
 }
 
 pub async fn dm_only<
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static
->(context: Context<E, S>) -> Result<bool, E> {
+    E: From<Error> + Send + Sync + 'static,
+    S: Send + Sync + 'static,
+>(
+    context: Context<E, S>,
+) -> Result<bool, E> {
     match context.get_current_channel().await {
-        Some(Channel::DirectMessage { .. } | Channel::Group { .. } | Channel::SavedMessages { .. }) => {
-            Ok(true)
-        }
+        Some(
+            Channel::DirectMessage { .. } | Channel::Group { .. } | Channel::SavedMessages { .. },
+        ) => Ok(true),
         _ => Err(Error::NotInDM.into()),
     }
 }

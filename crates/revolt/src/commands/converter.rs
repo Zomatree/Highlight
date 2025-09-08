@@ -1,4 +1,4 @@
-use std::{fmt::Debug, sync::LazyLock};
+use std::sync::LazyLock;
 
 use async_trait::async_trait;
 use regex::Regex;
@@ -16,9 +16,7 @@ static ROLE_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^<%([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})>$").unwrap());
 
 #[async_trait]
-pub trait Converter<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync>:
-    Sized
-{
+pub trait Converter<E: From<Error>, S: Send + Sync>: Sized {
     async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
         let input = context.words.next().ok_or(Error::MissingParameter)?;
 
@@ -29,9 +27,7 @@ pub trait Converter<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clo
 }
 
 #[async_trait]
-impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
-    for u32
-{
+impl<E: From<Error>, S: Send + Sync> Converter<E, S> for u32 {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
         input
             .parse::<u32>()
@@ -40,18 +36,14 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
 }
 
 #[async_trait]
-impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
-    for String
-{
+impl<E: From<Error>, S: Send + Sync> Converter<E, S> for String {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
         Ok(input)
     }
 }
 
 #[async_trait]
-impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
-    for User
-{
+impl<E: From<Error>, S: Send + Sync> Converter<E, S> for User {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
         if let Some(captures) = USER_REGEX
             .captures(&input)
@@ -73,9 +65,7 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
 }
 
 #[async_trait]
-impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
-    for Channel
-{
+impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Channel {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
         if let Some(captures) = CHANNEL_REGEX
             .captures(&input)
@@ -84,7 +74,7 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
             let id = captures.get(1).unwrap().as_str();
 
             if let Some(channel) = context.cache.get_channel(id).await {
-                return Ok(channel)
+                return Ok(channel);
             }
         };
 
@@ -93,12 +83,10 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
 }
 
 #[async_trait]
-impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
-    for Role
-{
+impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Role {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
         let Some(server) = context.get_current_server().await else {
-            return Err(Error::ConverterError("Role not found".to_string()).into())
+            return Err(Error::ConverterError("Role not found".to_string()).into());
         };
 
         if let Some(captures) = ROLE_REGEX
@@ -108,7 +96,7 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
             let id = captures.get(1).unwrap().as_str();
 
             if let Some(role) = server.roles.get(id) {
-                return Ok(role.clone())
+                return Ok(role.clone());
             }
         };
 
@@ -117,17 +105,15 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
 }
 
 #[async_trait]
-impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
-    for Member
-{
+impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Member {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
         if let Some(server) = context.get_current_server().await {
             let user = <User as Converter<E, S>>::convert(context, input).await?;
 
             if let Some(member) = context.cache.get_member(&server.id, &user.id).await {
-                return Ok(member)
+                return Ok(member);
             } else if let Ok(member) = context.http.fetch_member(&server.id, &user.id).await {
-                return Ok(member)
+                return Ok(member);
             };
         };
 
@@ -138,9 +124,7 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
 pub struct ConsumeRest(pub String);
 
 #[async_trait]
-impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
-    for ConsumeRest
-{
+impl<E: From<Error>, S: Send + Sync> Converter<E, S> for ConsumeRest {
     async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
         let words = context.words.rest();
 
@@ -155,9 +139,7 @@ impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Syn
 pub struct Rest(pub Vec<String>);
 
 #[async_trait]
-impl<E: From<Error> + Clone + Debug + Send + Sync, S: Debug + Clone + Send + Sync> Converter<E, S>
-    for Rest
-{
+impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Rest {
     async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
         Ok(Self(context.words.rest()))
     }

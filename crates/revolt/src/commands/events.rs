@@ -6,20 +6,26 @@ use crate::{Error, commands::Context};
 
 #[async_trait]
 #[allow(unused)]
-pub trait CommandEventHandler<
-    E: From<Error> + Clone + Debug + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static,
->
-{
-    async fn command(&self, context: Context<E, S>) -> Result<(), E> {
+pub trait CommandEventHandler {
+    type State: Debug + Clone + Send + Sync + 'static;
+    type Error: From<Error> + Clone + Debug + Send + Sync + 'static;
+
+    async fn command(&self, context: Context<Self::Error, Self::State>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    async fn no_command(&self, context: Context<E, S>) -> Result<(), E> {
+    async fn no_command(
+        &self,
+        context: Context<Self::Error, Self::State>,
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    async fn error(&self, context: Context<E, S>, error: E) -> Result<(), E> {
+    async fn error(
+        &self,
+        context: Context<Self::Error, Self::State>,
+        error: Self::Error,
+    ) -> Result<(), Self::Error> {
         println!("Error: {error:?}");
 
         Ok(())

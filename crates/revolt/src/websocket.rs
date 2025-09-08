@@ -1,22 +1,17 @@
-use futures::{SinkExt, StreamExt};
-use revolt_database::events::client::{EventV1, Ping};
-use serde::Serialize;
+use futures::{SinkExt, StreamExt, future::join};
+use revolt_database::events::{
+    client::{EventV1, Ping},
+    server::ClientMessage,
+};
 use std::{sync::Arc, time::Duration};
 use tokio::{
-    sync::{Mutex, mpsc::UnboundedSender},
+    sync::{
+        Mutex,
+        mpsc::{UnboundedReceiver, UnboundedSender},
+    },
     time::sleep,
 };
 use tokio_tungstenite::connect_async;
-
-#[derive(Serialize, Debug)]
-#[serde(tag = "type")]
-pub enum ClientMessage {
-    Authenticate { token: String },
-    BeginTyping { channel: String },
-    EndTyping { channel: String },
-    Subscribe { server_id: String },
-    Ping { data: Ping, responded: Option<()> },
-}
 
 use crate::cache::GlobalCache;
 
@@ -33,6 +28,7 @@ macro_rules! send {
 
 pub async fn run(
     events: UnboundedSender<EventV1>,
+    client_events: Arc<Mutex<UnboundedReceiver<ClientMessage>>>,
     global_state: GlobalCache,
     token: String,
 ) -> Result<(), tungstenite::Error> {
@@ -46,44 +42,67 @@ pub async fn run(
 
     let mut heartbeat_handle = None;
 
-    while let Some(Ok(msg)) = ws_receive.next().await {
-        if let Ok(data) = msg.to_text() {
-            let event = serde_json::from_str(data).unwrap();
+    let server_client = tokio::spawn({
+        let ws_send = ws_send.clone();
 
-            if let EventV1::Authenticated = &event {
-                heartbeat_handle = Some(tokio::spawn({
-                    let ws = ws_send.clone();
-                    let mut i = 0;
+        async move {
+            while let Some(Ok(msg)) = ws_receive.next().await {
+                if let Ok(data) = msg.to_text() {
+                    match serde_json::from_str(data) {
+                        Ok(event) => {
+                            if let EventV1::Authenticated = &event {
+                                heartbeat_handle = Some(tokio::spawn({
+                                    let ws = ws_send.clone();
+                                    let mut i = 0;
 
-                    async move {
-                        loop {
-                            send!(
-                                ws,
-                                &ClientMessage::Ping {
-                                    data: Ping::Number(i),
-                                    responded: None
-                                }
-                            )?;
-                            i = i.wrapping_add(1);
+                                    async move {
+                                        loop {
+                                            send!(
+                                                ws,
+                                                &ClientMessage::Ping {
+                                                    data: Ping::Number(i),
+                                                    responded: None
+                                                }
+                                            )?;
+                                            i = i.wrapping_add(1);
 
-                            sleep(Duration::from_secs(30)).await;
+                                            sleep(Duration::from_secs(30)).await;
+                                        }
+
+                                        #[allow(unreachable_code)]
+                                        Ok::<(), tungstenite::Error>(())
+                                    }
+                                }));
+                            };
+
+                            events.send(event).unwrap();
                         }
+                        Err(e) => {
+                            println!("Failed to deserialise event: {e:?}");
+                        }
+                    };
+                } else {
+                    println!("Unexpected WS message: {:?}", msg.into_data())
+                }
+            }
 
-                        #[allow(unreachable_code)]
-                        Ok::<(), tungstenite::Error>(())
-                    }
-                }));
+            if let Some(handle) = heartbeat_handle {
+                handle.abort();
             };
-
-            events.send(event).unwrap();
-        } else {
-            println!("Unexpected WS message: {:?}", msg.into_data())
         }
-    };
+    });
 
-    if let Some(handle) = heartbeat_handle {
-        handle.abort();
-    };
+    let client_server = tokio::spawn({
+        let ws_send = ws_send.clone();
+
+        async move {
+            while let Some(message) = client_events.lock().await.recv().await {
+                send!(ws_send, &message);
+            }
+        }
+    });
+
+    join(server_client, client_server).await;
 
     Ok(())
 }

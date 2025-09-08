@@ -152,7 +152,10 @@ impl revolt_permissions::PermissionQuery for PermissionQuery<'_> {
         if let Some(server) = &self.server {
             if self.member.is_some() {
                 true
-            } else if let Some(member) = self.cache.get_member(&server.id, &self.perspective.id).await
+            } else if let Some(member) = self
+                .cache
+                .get_member(&server.id, &self.perspective.id)
+                .await
             {
                 self.member = Some(Cow::Owned(member.clone()));
 

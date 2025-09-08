@@ -156,7 +156,11 @@ impl GlobalCache {
     pub async fn remove_message(&self, message_id: &str) -> Option<Message> {
         let mut messages = self.messages.write().await;
 
-        if let Some((idx, _)) = messages.iter().enumerate().find(|(_, msg)| &msg.id == message_id) {
+        if let Some((idx, _)) = messages
+            .iter()
+            .enumerate()
+            .find(|(_, msg)| &msg.id == message_id)
+        {
             messages.remove(idx)
         } else {
             None

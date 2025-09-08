@@ -1,12 +1,13 @@
-use std::{fmt::Debug};
+use std::fmt::Debug;
 
 use async_trait::async_trait;
 use revolt_database::events::client::EventV1;
 use revolt_models::v0::{
-    Channel, FieldsChannel, FieldsMessage, FieldsRole, FieldsServer, FieldsUser, Message, RelationshipStatus, RemovalIntention
+    Channel, FieldsChannel, FieldsMessage, FieldsRole, FieldsServer, FieldsUser, Member, Message,
+    RelationshipStatus, RemovalIntention,
 };
 
-use crate::{cache::GlobalCache, Context};
+use crate::{Context, Error, cache::GlobalCache};
 
 macro_rules! set_enum_varient_values {
     ($enum: ident, $key: ident, $value: expr, ($($varient: path),+)) => {
@@ -84,74 +85,108 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
             data,
             clear,
         } => {
-            state.update_message_with(&id, |message| {
-                message.apply_options(data);
+            state
+                .update_message_with(&id, |message| {
+                    message.apply_options(data);
 
-                for field in clear {
-                    match field {
-                        FieldsMessage::Pinned => message.pinned = None,
+                    for field in clear {
+                        match field {
+                            FieldsMessage::Pinned => message.pinned = None,
+                        }
                     }
-                }
-            }).await
+                })
+                .await
         }
         EventV1::MessageDelete { id, channel } => {
             state.remove_message(&id).await;
         }
-        EventV1::MessageReact { id, channel_id, user_id, emoji_id } => {
-            state.update_message_with(&id, |message| {
-                message.reactions.entry(emoji_id).or_default().insert(user_id);
-            }).await
+        EventV1::MessageReact {
+            id,
+            channel_id,
+            user_id,
+            emoji_id,
+        } => {
+            state
+                .update_message_with(&id, |message| {
+                    message
+                        .reactions
+                        .entry(emoji_id)
+                        .or_default()
+                        .insert(user_id);
+                })
+                .await
         }
-        EventV1::MessageUnreact { id, channel_id, user_id, emoji_id } => {
-            state.update_message_with(&id, |message| {
-                if let Some(users) = message.reactions.get_mut(&emoji_id) {
-                    users.remove(&user_id);
+        EventV1::MessageUnreact {
+            id,
+            channel_id,
+            user_id,
+            emoji_id,
+        } => {
+            state
+                .update_message_with(&id, |message| {
+                    if let Some(users) = message.reactions.get_mut(&emoji_id) {
+                        users.remove(&user_id);
 
-                    if users.is_empty() {
-                        message.reactions.remove(&emoji_id);
-                    };
-                }
-            }).await
+                        if users.is_empty() {
+                            message.reactions.remove(&emoji_id);
+                        };
+                    }
+                })
+                .await
         }
-        EventV1::MessageRemoveReaction { id, channel_id, emoji_id } => {
-            state.update_message_with(&id, |message| {
-                message.reactions.remove(&emoji_id);
-            }).await
+        EventV1::MessageRemoveReaction {
+            id,
+            channel_id,
+            emoji_id,
+        } => {
+            state
+                .update_message_with(&id, |message| {
+                    message.reactions.remove(&emoji_id);
+                })
+                .await
         }
         EventV1::UserUpdate {
             id, data, clear, ..
         } => {
-            state.update_user_with(&id, |user| {
-                user.apply_options(data);
+            state
+                .update_user_with(&id, |user| {
+                    user.apply_options(data);
 
-                for field in clear {
-                    match field {
-                        FieldsUser::Avatar => user.avatar = None,
-                        FieldsUser::StatusText => {
-                            if let Some(status) = user.status.as_mut() {
-                                status.text = None
-                            };
+                    for field in clear {
+                        match field {
+                            FieldsUser::Avatar => user.avatar = None,
+                            FieldsUser::StatusText => {
+                                if let Some(status) = user.status.as_mut() {
+                                    status.text = None
+                                };
+                            }
+                            FieldsUser::StatusPresence => {
+                                if let Some(status) = user.status.as_mut() {
+                                    status.presence = None
+                                };
+                            }
+                            FieldsUser::DisplayName => user.display_name = None,
+                            _ => {}
                         }
-                        FieldsUser::StatusPresence => {
-                            if let Some(status) = user.status.as_mut() {
-                                status.presence = None
-                            };
-                        }
-                        FieldsUser::DisplayName => user.display_name = None,
-                        _ => {}
                     }
-                }
-            }).await
+                })
+                .await
         }
         EventV1::BulkMessageDelete { channel: _, ids } => {
-            state.messages.write().await.retain(|m| !ids.contains(&m.id));
+            state
+                .messages
+                .write()
+                .await
+                .retain(|m| !ids.contains(&m.id));
         }
         EventV1::ChannelAck { .. } => {}
         EventV1::ChannelCreate(channel) => {
             match &channel {
                 Channel::TextChannel { id, server, .. }
                 | Channel::VoiceChannel { id, server, .. } => {
-                    state.update_server_with(&server, |server| server.channels.push(id.to_string())).await
+                    state
+                        .update_server_with(&server, |server| server.channels.push(id.to_string()))
+                        .await
                 }
                 _ => {}
             };
@@ -163,97 +198,109 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
                 match &channel {
                     Channel::TextChannel { id, server, .. }
                     | Channel::VoiceChannel { id, server, .. } => {
-                        state.update_server_with(&server, |server| server.channels.retain(|c_id| c_id != id)).await
+                        state
+                            .update_server_with(&server, |server| {
+                                server.channels.retain(|c_id| c_id != id)
+                            })
+                            .await
                     }
                     _ => {}
                 };
             }
         }
         EventV1::ChannelGroupJoin { id, user } => {
-            state.update_channel_with(&id, |channel| {
-                if let Channel::Group { recipients, .. } = channel {
-                    recipients.push(user)
-                }
-            }).await
+            state
+                .update_channel_with(&id, |channel| {
+                    if let Channel::Group { recipients, .. } = channel {
+                        recipients.push(user)
+                    }
+                })
+                .await
         }
         EventV1::ChannelGroupLeave { id, user } => {
-            state.update_channel_with(&id, |channel| {
-                if let Channel::Group { recipients, .. } = channel {
-                    recipients.retain(|u_id| u_id != &user)
-                }
-            }).await
+            state
+                .update_channel_with(&id, |channel| {
+                    if let Channel::Group { recipients, .. } = channel {
+                        recipients.retain(|u_id| u_id != &user)
+                    }
+                })
+                .await
         }
         EventV1::ChannelUpdate { id, data, clear } => {
-            state.update_channel_with(&id, |channel| {
-                update_multi_enum_partial!(
-                    channel,
-                    data,
-                    (
-                        (name, (Channel::TextChannel, Channel::VoiceChannel)),
-                        (owner, (Channel::Group)),
-                        optional(
-                            description,
-                            (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
-                        ),
-                        optional(
-                            icon,
-                            (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
-                        ),
+            state
+                .update_channel_with(&id, |channel| {
+                    update_multi_enum_partial!(
+                        channel,
+                        data,
                         (
-                            nsfw,
-                            (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
-                        ),
-                        (active, (Channel::DirectMessage)),
-                        optional(permissions, (Channel::Group)),
-                        (
-                            role_permissions,
-                            (Channel::TextChannel, Channel::VoiceChannel)
-                        ),
-                        optional(
-                            default_permissions,
-                            (Channel::TextChannel, Channel::VoiceChannel)
-                        ),
-                        optional(
-                            last_message_id,
-                            (Channel::DirectMessage, Channel::Group, Channel::TextChannel)
+                            (name, (Channel::TextChannel, Channel::VoiceChannel)),
+                            (owner, (Channel::Group)),
+                            optional(
+                                description,
+                                (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
+                            ),
+                            optional(
+                                icon,
+                                (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
+                            ),
+                            (
+                                nsfw,
+                                (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
+                            ),
+                            (active, (Channel::DirectMessage)),
+                            optional(permissions, (Channel::Group)),
+                            (
+                                role_permissions,
+                                (Channel::TextChannel, Channel::VoiceChannel)
+                            ),
+                            optional(
+                                default_permissions,
+                                (Channel::TextChannel, Channel::VoiceChannel)
+                            ),
+                            optional(
+                                last_message_id,
+                                (Channel::DirectMessage, Channel::Group, Channel::TextChannel)
+                            )
                         )
-                    )
-                );
+                    );
 
-                for field in clear {
-                    match field {
-                        FieldsChannel::Description => set_enum_varient_values!(
-                            channel,
-                            description,
-                            None,
-                            (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
-                        ),
-                        FieldsChannel::Icon => set_enum_varient_values!(
-                            channel,
-                            icon,
-                            None,
-                            (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
-                        ),
-                        FieldsChannel::DefaultPermissions => set_enum_varient_values!(
-                            channel,
-                            default_permissions,
-                            None,
-                            (Channel::TextChannel, Channel::VoiceChannel)
-                        ),
+                    for field in clear {
+                        match field {
+                            FieldsChannel::Description => set_enum_varient_values!(
+                                channel,
+                                description,
+                                None,
+                                (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
+                            ),
+                            FieldsChannel::Icon => set_enum_varient_values!(
+                                channel,
+                                icon,
+                                None,
+                                (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
+                            ),
+                            FieldsChannel::DefaultPermissions => set_enum_varient_values!(
+                                channel,
+                                default_permissions,
+                                None,
+                                (Channel::TextChannel, Channel::VoiceChannel)
+                            ),
+                        }
                     }
-                }
-            }).await
+                })
+                .await
         }
         EventV1::MessageAppend {
             id,
             channel: _,
             append,
         } => {
-            state.update_message_with(&id, |message| {
-                if let Some(embeds) = append.embeds {
-                    message.embeds.get_or_insert_default().extend(embeds);
-                }
-            }).await
+            state
+                .update_message_with(&id, |message| {
+                    if let Some(embeds) = append.embeds {
+                        message.embeds.get_or_insert_default().extend(embeds);
+                    }
+                })
+                .await
         }
         EventV1::ServerCreate {
             id,
@@ -275,52 +322,65 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
             }
         }
         EventV1::ServerUpdate { id, data, clear } => {
-            state.update_server_with(&id, |server| {
-                server.apply_options(data);
+            state
+                .update_server_with(&id, |server| {
+                    server.apply_options(data);
 
-                for field in clear {
-                    match field {
-                        FieldsServer::Description => server.description = None,
-                        FieldsServer::Categories => server.categories = None,
-                        FieldsServer::SystemMessages => server.system_messages = None,
-                        FieldsServer::Icon => server.icon = None,
-                        FieldsServer::Banner => server.banner = None,
+                    for field in clear {
+                        match field {
+                            FieldsServer::Description => server.description = None,
+                            FieldsServer::Categories => server.categories = None,
+                            FieldsServer::SystemMessages => server.system_messages = None,
+                            FieldsServer::Icon => server.icon = None,
+                            FieldsServer::Banner => server.banner = None,
+                        }
                     }
-                }
-            }).await
+                })
+                .await
         }
-        EventV1::ServerMemberJoin { id, user } => {
+        EventV1::ServerMemberJoin { id, member, .. } => {
             // TODO insert member when update is out
         }
         EventV1::ServerMemberLeave { id, user, reason } => {
             state.remove_member(&id, &user).await;
         }
-        EventV1::ServerRoleUpdate { id, role_id, data, clear } => {
-            state.update_server_with(&id, |server| {
-                if let Some(role) = server.roles.get_mut(&role_id) {
-                    role.apply_options(data);
+        EventV1::ServerRoleUpdate {
+            id,
+            role_id,
+            data,
+            clear,
+        } => {
+            state
+                .update_server_with(&id, |server| {
+                    if let Some(role) = server.roles.get_mut(&role_id) {
+                        role.apply_options(data);
 
-                    for field in clear {
-                        match field {
-                            FieldsRole::Colour => role.colour = None,
+                        for field in clear {
+                            match field {
+                                FieldsRole::Colour => role.colour = None,
+                            }
                         }
                     }
-                }
-            }).await
+                })
+                .await
         }
         EventV1::ServerRoleDelete { id, role_id } => {
-            state.update_server_with(&id, |server| {
-                server.roles.remove(&role_id);
-            }).await
+            state
+                .update_server_with(&id, |server| {
+                    server.roles.remove(&role_id);
+                })
+                .await
         }
         EventV1::ServerRoleRanksUpdate { id, ranks } => {
-            state.update_server_with(&id, |server| {
-                for (idx, role_id) in ranks.iter().enumerate() {
-                    if let Some(role) = server.roles.get_mut(role_id) {
-                        role.rank = idx as i64;
-                    };
-                }
-            }).await
+            state
+                .update_server_with(&id, |server| {
+                    for (idx, role_id) in ranks.iter().enumerate() {
+                        if let Some(role) = server.roles.get_mut(role_id) {
+                            role.rank = idx as i64;
+                        };
+                    }
+                })
+                .await
         }
         _ => {}
     }
@@ -328,16 +388,18 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
 
 #[async_trait]
 #[allow(unused)]
-pub trait EventHandler<E: Debug + Send + Sync + 'static>: Sized {
-    async fn authenticated(&self, context: Context) -> Result<(), E> {
+pub trait EventHandler: Sized {
+    type Error: From<Error> + Debug + Send + Sync + 'static;
+
+    async fn authenticated(&self, context: Context) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    async fn ready(&self, context: Context) -> Result<(), E> {
+    async fn ready(&self, context: Context) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    async fn message(&self, context: Context, message: Message) -> Result<(), E> {
+    async fn message(&self, context: Context, message: Message) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -346,7 +408,7 @@ pub trait EventHandler<E: Debug + Send + Sync + 'static>: Sized {
         context: Context,
         channel_id: String,
         user_id: String,
-    ) -> Result<(), E> {
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -355,7 +417,7 @@ pub trait EventHandler<E: Debug + Send + Sync + 'static>: Sized {
         context: Context,
         channel_id: String,
         user_id: String,
-    ) -> Result<(), E> {
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -363,8 +425,8 @@ pub trait EventHandler<E: Debug + Send + Sync + 'static>: Sized {
         &self,
         context: Context,
         server_id: String,
-        user_id: String,
-    ) -> Result<(), E> {
+        member: Member,
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -374,11 +436,11 @@ pub trait EventHandler<E: Debug + Send + Sync + 'static>: Sized {
         server_id: String,
         user_id: String,
         reason: RemovalIntention,
-    ) -> Result<(), E> {
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    async fn error(&self, context: Context, error: E) {
+    async fn error(&self, context: Context, error: Self::Error) {
         println!("Error: {error:?}");
     }
 }

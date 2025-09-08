@@ -1,4 +1,4 @@
-use revolt::commands::{server_only, Command, Context};
+use revolt::commands::{Command, Context, server_only};
 
 use crate::{Error, State};
 
@@ -9,7 +9,7 @@ mod unblock;
 mod view;
 
 async fn highlight(ctx: Context<Error, State>) -> Result<(), Error> {
-    let server_id =  &ctx.get_current_server().await.as_ref().unwrap().id;
+    let server_id = &ctx.get_current_server().await.as_ref().unwrap().id;
 
     let highlights = ctx
         .state

@@ -4,22 +4,24 @@ use revolt::{
     Context, EventHandler, async_trait,
     commands::CommandHandler,
     permissions::{ChannelPermission, calculate_channel_permissions, user_permissions_query},
-    types::{Channel, Message, RemovalIntention, SendableEmbed},
+    types::{Channel, Member, Message, RemovalIntention, SendableEmbed},
 };
 
 use crate::{Error, State, commands::CommandEvents};
 
 #[derive(Clone)]
 pub struct Events {
-    pub commands: CommandHandler<CommandEvents, Error, State>,
+    pub commands: CommandHandler<CommandEvents>,
     pub state: State,
 }
 
 #[async_trait]
-impl EventHandler<Error> for Events {
+impl EventHandler for Events {
+    type Error = Error;
+
     async fn message(&self, ctx: Context, message: Message) -> Result<(), Error> {
         if message.user.as_ref().unwrap().bot.is_some() {
-            return Ok(())
+            return Ok(());
         };
 
         tokio::spawn({
@@ -43,11 +45,7 @@ impl EventHandler<Error> for Events {
             _ => return Ok(()),
         };
 
-        let server = ctx
-            .cache
-            .get_server(&server_id)
-            .await
-            .unwrap();
+        let server = ctx.cache.get_server(&server_id).await.unwrap();
 
         let regexes = self.state.get_keywords(server_id.clone()).await?;
         let known_not_in_server = self
@@ -126,7 +124,8 @@ impl EventHandler<Error> for Events {
                 let message_author = message.author.clone();
 
                 let server_name = ctx.cache.get_server(&server_id).await.unwrap().name;
-                let channel_name = ctx.cache
+                let channel_name = ctx
+                    .cache
                     .get_channel(&channel_id)
                     .await
                     .unwrap()
@@ -258,16 +257,16 @@ impl EventHandler<Error> for Events {
         &self,
         ctx: Context,
         server_id: String,
-        user_id: String,
+        member: Member,
     ) -> Result<(), Error> {
         if let Some(set) = self
             .state
             .known_not_in_server
             .write()
             .await
-            .get_mut(&server_id)
+            .get_mut(&member.id.server)
         {
-            set.remove(&user_id);
+            set.remove(&member.id.user);
         };
 
         Ok(())

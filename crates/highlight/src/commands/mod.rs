@@ -13,7 +13,10 @@ mod info;
 pub struct CommandEvents;
 
 #[async_trait]
-impl CommandEventHandler<Error, State> for CommandEvents {
+impl CommandEventHandler for CommandEvents {
+    type Error = Error;
+    type State = State;
+
     async fn error(&self, ctx: Context<Error, State>, error: Error) -> Result<(), Error> {
         match error {
             Error::RevoltError(revolt::Error::NotInServer) => {

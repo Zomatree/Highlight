@@ -1,5 +1,5 @@
 use revolt::{
-    commands::{server_only, Command, Context, HasChannelPermissions},
+    commands::{Command, Context, HasChannelPermissions, server_only},
     permissions::ChannelPermission,
     types::User,
 };
