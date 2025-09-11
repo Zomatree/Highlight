@@ -48,62 +48,93 @@ impl<E, S> Context<E, S> {
     }
 
     pub async fn get_current_channel(&self) -> &Option<Channel> {
-        self.local_cache_async(self.cache.get_channel(&self.message.channel))
+        &self
+            .local_cache_async({
+                struct CurrentChannel(Option<Channel>);
+
+                async move { CurrentChannel(self.cache.get_channel(&self.message.channel).await) }
+            })
             .await
+            .0
     }
 
     pub async fn get_current_server(&self) -> &Option<Server> {
-        self.local_cache_async(async {
-            let channel = self.get_current_channel().await;
+        &self
+            .local_cache_async({
+                struct CurrentServer(Option<Server>);
 
-            if let Some(
-                Channel::TextChannel { server, .. } | Channel::VoiceChannel { server, .. },
-            ) = channel
-            {
-                self.cache.get_server(server).await
-            } else {
-                None
-            }
-        })
-        .await
+                async move {
+                    let channel = self.get_current_channel().await;
+
+                    CurrentServer(
+                        if let Some(
+                            Channel::TextChannel { server, .. }
+                            | Channel::VoiceChannel { server, .. },
+                        ) = channel
+                        {
+                            self.cache.get_server(server).await
+                        } else {
+                            None
+                        },
+                    )
+                }
+            })
+            .await
+            .0
     }
 
     pub async fn get_user(&self) -> &Option<User> {
-        self.local_cache_async(async {
-            if let Some(user) = self.message.user.as_ref() {
-                Some(user.clone())
-            } else if let Some(user) = self.cache.get_user(&self.message.author).await {
-                Some(user.clone())
-            } else if let Ok(user) = self.http.fetch_user(&self.message.author).await {
-                Some(user)
-            } else {
-                None
-            }
-        })
-        .await
+        &self
+            .local_cache_async({
+                struct CurrentUser(Option<User>);
+
+                async move {
+                    CurrentUser(if let Some(user) = self.message.user.as_ref() {
+                        Some(user.clone())
+                    } else if let Some(user) = self.cache.get_user(&self.message.author).await {
+                        Some(user.clone())
+                    } else if let Ok(user) = self.http.fetch_user(&self.message.author).await {
+                        Some(user)
+                    } else {
+                        None
+                    })
+                }
+            })
+            .await
+            .0
     }
 
     pub async fn get_member(&self) -> &Option<Member> {
-        self.local_cache_async(async {
-            if let Some(member) = self.message.member.as_ref() {
-                Some(member.clone())
-            } else {
-                let server_id = &self.get_current_server().await.as_ref()?.id;
+        &self
+            .local_cache_async({
+                struct CurrentMember(Option<Member>);
 
-                if let Some(member) = self.cache.get_member(server_id, &self.message.author).await {
-                    Some(member.clone())
-                } else if let Ok(member) = self
-                    .http
-                    .fetch_member(server_id, &self.message.author)
-                    .await
-                {
-                    Some(member)
-                } else {
-                    None
+                async move {
+                    CurrentMember(if let Some(member) = self.message.member.as_ref() {
+                        Some(member.clone())
+                    } else if let Some(server) = self.get_current_server().await {
+                        if let Some(member) = self
+                            .cache
+                            .get_member(&server.id, &self.message.author)
+                            .await
+                        {
+                            Some(member.clone())
+                        } else if let Ok(member) = self
+                            .http
+                            .fetch_member(&server.id, &self.message.author)
+                            .await
+                        {
+                            Some(member)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    })
                 }
-            }
-        })
-        .await
+            })
+            .await
+            .0
     }
 
     pub async fn get_author_channel_permissions(&self) -> PermissionValue {
