@@ -1,7 +1,7 @@
 services:
   highlight:
-    # image: ghcr.io/zomatree/highlight
-    build: .
+    image: ghcr.io/zomatree/highlight
+    # build: .
     volumes:
       - ./Highlight.toml:/Highlight.toml:ro
     environment:
