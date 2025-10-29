@@ -5,6 +5,18 @@ use crate::{Error, State};
 async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> Result<(), Error> {
     let server_id = ctx.get_current_server().await.as_ref().unwrap().id.clone();
 
+    let current_keywords = ctx.state.fetch_keywords_for_user(&ctx.message.author, &server_id).await?;
+
+    if current_keywords.len() >= ctx.state.config.limits.max_keywords {
+        ctx.http
+            .send_message(&ctx.message.channel)
+            .content(format!("Max keyword amount reached ({})", ctx.state.config.limits.max_keywords))
+            .build()
+            .await?;
+
+        return Ok(())
+    };
+
     match ctx
         .state
         .add_keyword(ctx.message.author.clone(), server_id, keyword)

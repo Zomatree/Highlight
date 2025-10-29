@@ -8,3 +8,6 @@ id = ""
 
 [database]
 url = ""
+
+[limits]
+max_keywords = 10

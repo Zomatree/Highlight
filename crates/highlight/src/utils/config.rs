@@ -5,6 +5,7 @@ pub struct Config {
     pub stoat: StoatConfig,
     pub bot: BotConfig,
     pub database: DatabaseConfig,
+    pub limits: LimitsConfig
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -22,4 +23,9 @@ pub struct BotConfig {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DatabaseConfig {
     pub url: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LimitsConfig {
+    pub max_keywords: usize
 }
