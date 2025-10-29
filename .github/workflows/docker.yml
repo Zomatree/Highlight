@@ -29,7 +29,7 @@ jobs:
           context: .
           push: false
           platforms: linux/amd64
-          tags: ghcr.io/${{ github.repository_owner }}/highlight:latest
+          tags: ghcr.io/zomatree/highlight:latest
           outputs: type=docker,dest=${{ runner.temp }}/highlight.tar
 
       - name: Upload artifact
@@ -40,6 +40,7 @@ jobs:
 
   publish:
     name: Publish to ghcr.io
+    needs: build
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     steps:
@@ -62,4 +63,4 @@ jobs:
 
       - name: Push image
         run: |
-          docker image push ghcr.io/${{ github.repository_owner }}/highlight:latest
+          docker image push ghcr.io/zomatree/highlight:latest
