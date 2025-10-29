@@ -1,12 +1,9 @@
-name: Docker Build
+name: Docker Publish
 
 on:
   push:
     tags:
       - "*"
-  pull_request:
-    branches:
-      - master
 
 permissions:
   contents: read
