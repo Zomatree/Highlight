@@ -2,8 +2,8 @@ use std::{fmt::Debug, sync::Arc};
 
 use async_fn_traits::AsyncFn1;
 use async_trait::async_trait;
-use revolt_models::v0::Channel;
-use revolt_permissions::ChannelPermission;
+use stoat_models::v0::Channel;
+use stoat_permissions::ChannelPermission;
 
 use crate::{Error, commands::Context};
 

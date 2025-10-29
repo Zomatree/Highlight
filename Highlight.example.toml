@@ -1,5 +1,5 @@
-[revolt]
-api = "https://api.revolt.chat"
+[stoat]
+api = "https://api.stoat.chat"
 
 [bot]
 prefix = "h!"

@@ -1,6 +1,6 @@
 use std::{borrow::Cow, time::Duration};
 
-use revolt::{
+use stoat::{
     Context, EventHandler, async_trait,
     commands::CommandHandler,
     permissions::{ChannelPermission, calculate_channel_permissions, user_permissions_query},
@@ -192,7 +192,7 @@ impl EventHandler for Events {
                         messages.messages.sort_by(|a, b| a.id.cmp(&b.id));
 
                         let jump_link = format!(
-                            "https://app.revolt.chat/server/{server_id}/channel/{channel_id}/{message_id}"
+                            "https://stoat.chat/server/{server_id}/channel/{channel_id}/{message_id}"
                         );
                         let keyword = group.as_str();
 
@@ -293,7 +293,7 @@ impl EventHandler for Events {
     }
 
     async fn ready(&self, ctx: Context) -> Result<(), Error> {
-        println!("Ready!");
+        log::info!("Ready!");
 
         Ok(())
     }

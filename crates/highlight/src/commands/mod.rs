@@ -1,4 +1,4 @@
-use revolt::{
+use stoat::{
     async_trait,
     commands::{Command, CommandEventHandler, Context},
 };
@@ -19,14 +19,14 @@ impl CommandEventHandler for CommandEvents {
 
     async fn error(&self, ctx: Context<Error, State>, error: Error) -> Result<(), Error> {
         match error {
-            Error::RevoltError(revolt::Error::NotInServer) => {
+            Error::StoatError(stoat::Error::NotInServer) => {
                 ctx.http
                     .send_message(&ctx.message.channel)
                     .content("This command can only be used in a server".to_string())
                     .build()
                     .await?;
             }
-            error => println!("{error:?}"),
+            error => log::error!("{error:?}"),
         };
 
         Ok(())

@@ -1,4 +1,4 @@
-use revolt::{
+use stoat::{
     commands::{Command, Context, HasChannelPermissions, server_only},
     permissions::ChannelPermission,
     types::User,

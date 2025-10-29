@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use revolt_permissions::ChannelPermission;
+use stoat_permissions::ChannelPermission;
 
 #[derive(Debug, Clone)]
 pub enum Error {

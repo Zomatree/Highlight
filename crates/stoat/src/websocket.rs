@@ -1,5 +1,5 @@
 use futures::{SinkExt, StreamExt, future::join};
-use revolt_database::events::{
+use stoat_database::events::{
     client::{EventV1, Ping},
     server::ClientMessage,
 };
@@ -78,11 +78,11 @@ pub async fn run(
                             events.send(event).unwrap();
                         }
                         Err(e) => {
-                            println!("Failed to deserialise event: {e:?}");
+                            log::error!("Failed to deserialise event: {e:?}");
                         }
                     };
                 } else {
-                    println!("Unexpected WS message: {:?}", msg.into_data())
+                    log::error!("Unexpected WS message: {:?}", msg.into_data())
                 }
             }
 

@@ -9,7 +9,7 @@ use std::{
 };
 use tokio::sync::RwLock;
 
-use crate::{Config, Error};
+use crate::{Config, Error, create_highlight_regex};
 
 #[derive(Clone, Debug)]
 pub struct State {
@@ -70,15 +70,15 @@ impl State {
             mapping.entry(user_id).or_default().push(keyword)
         }
 
-        Ok(mapping
-            .into_iter()
-            .map(|(user_id, keywords)| {
-                let patten = format!(r#"(?:^|[^\w])({})(?:s|[^\w]|$)"#, keywords.join("|"));
-                let regex = Regex::new(&patten).unwrap();
+        let mut regexes = HashMap::new();
 
-                (user_id, (keywords, regex))
-            })
-            .collect())
+        for (user_id, keywords) in mapping {
+            let regex = create_highlight_regex(&keywords)?;
+
+            regexes.insert(user_id, (keywords, regex));
+        };
+
+        Ok(regexes)
     }
 
     pub async fn get_keywords(
@@ -104,26 +104,29 @@ impl State {
         server_id: String,
         keyword: String,
     ) -> Result<(), Error> {
+        let mut tx = self.pool.begin().await?;
+
         sqlx::query("insert into highlights (user_id, server_id, keyword) values ($1, $2, $3)")
             .bind(&user_id)
             .bind(&server_id)
             .bind(&keyword)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
 
         let mut lock = self.cached_keywords.lock().await;
 
         if let Some(values) = lock.get_mut(&server_id) {
             if let Some((keywords, regex)) = values.get_mut(&user_id) {
-                keywords.push(keyword);
-                let patten = format!(r#"(?:^|[^\w])({})(?:s|[^\w]|$)"#, keywords.join("|"));
+                *regex = create_highlight_regex(keywords)?;
 
-                *regex = Regex::new(&patten).unwrap()
+                keywords.push(keyword);
             } else {
-                let regex = Regex::new(&format!(r#"(?:^|[^\w])({keyword})(?:s|[^\w]|$)"#)).unwrap();
+                let regex = create_highlight_regex(&[keyword.clone()])?;
                 values.insert(user_id.clone(), (vec![keyword], regex));
             }
         };
+
+        tx.commit().await?;
 
         Ok(())
     }
@@ -134,13 +137,15 @@ impl State {
         server_id: String,
         keyword: String,
     ) -> Result<bool, Error> {
+        let mut tx = self.pool.begin().await?;
+
         let row_count = sqlx::query(
             "delete from highlights where user_id=$1 and server_id=$2 and keyword=$3 returning *",
         )
         .bind(&user_id)
         .bind(&server_id)
         .bind(&keyword)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?
         .rows_affected();
 
@@ -164,8 +169,7 @@ impl State {
                 if keywords.is_empty() {
                     values.remove(&user_id);
                 } else {
-                    let patten = format!(r#"(?:^|[^\w])({})(?:s|[^\w]|$)"#, keywords.join("|"));
-                    *regex = Regex::new(&patten).unwrap()
+                    *regex = create_highlight_regex(&keywords)?;
                 }
             };
         };

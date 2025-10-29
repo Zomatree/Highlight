@@ -1,5 +1,5 @@
 use reqwest::Method;
-use revolt_models::v0::{
+use stoat_models::v0::{
     BulkMessageResponse, Member, Message, MessageSort, OptionsQueryMessages, User,
 };
 

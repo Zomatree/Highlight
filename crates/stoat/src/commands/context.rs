@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Debug, ops::Deref, sync::Arc};
 
-use revolt_models::v0::{Channel, Member, Message, Server, User};
-use revolt_permissions::{
+use stoat_models::v0::{Channel, Member, Message, Server, User};
+use stoat_permissions::{
     PermissionValue, calculate_channel_permissions, calculate_server_permissions,
 };
 use state::TypeMap;

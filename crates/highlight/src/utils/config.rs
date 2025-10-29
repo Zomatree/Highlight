@@ -2,13 +2,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
-    pub revolt: RevoltConfig,
+    pub stoat: StoatConfig,
     pub bot: BotConfig,
     pub database: DatabaseConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct RevoltConfig {
+pub struct StoatConfig {
     pub api: String,
 }
 

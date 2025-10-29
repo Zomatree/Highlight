@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use revolt_database::events::server::ClientMessage;
+use stoat_database::events::server::ClientMessage;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{GlobalCache, HttpClient, notifiers::Notifiers};

@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use async_trait::async_trait;
 use regex::Regex;
-use revolt_models::v0::{Channel, Member, Role, User};
+use stoat_models::v0::{Channel, Member, Role, User};
 
 use crate::{Error, commands::Context};
 

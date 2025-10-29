@@ -2,7 +2,7 @@ use std::{panic::AssertUnwindSafe, sync::Arc, time::Duration};
 
 use async_recursion::async_recursion;
 use futures::{FutureExt, future::join};
-use revolt_database::events::{client::EventV1, server::ClientMessage};
+use stoat_database::events::{client::EventV1, server::ClientMessage};
 use tokio::sync::{
     Mutex,
     mpsc::{self, UnboundedReceiver, UnboundedSender},
@@ -67,10 +67,10 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
                     )
                     .await
                     {
-                        println!("{e:?}");
+                        log::error!("{e:?}");
                     }
 
-                    println!("Disconnected! Reconnecting in 10 seconds.");
+                    log::info!("Disconnected! Reconnecting in 10 seconds.");
 
                     tokio::time::sleep(Duration::from_secs(10)).await;
                 }
@@ -110,7 +110,7 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
         });
 
         if let Err(e) = wrapper.catch_unwind().await {
-            println!("{e:?}");
+            log::error!("{e:?}");
         }
     }
 

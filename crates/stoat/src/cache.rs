@@ -3,14 +3,14 @@ use std::{
     sync::Arc,
 };
 
-use revolt_models::v0::{Channel, Member, Message, Server, User};
+use stoat_models::v0::{Channel, Member, Message, Server, User};
 use tokio::sync::RwLock;
 
-use crate::http::RevoltConfig;
+use crate::http::StoatConfig;
 
 #[derive(Debug, Clone)]
 pub struct GlobalCache {
-    pub api_config: Arc<RevoltConfig>,
+    pub api_config: Arc<StoatConfig>,
 
     pub servers: Arc<RwLock<HashMap<String, Server>>>,
     pub users: Arc<RwLock<HashMap<String, User>>>,
@@ -22,7 +22,7 @@ pub struct GlobalCache {
 }
 
 impl GlobalCache {
-    pub fn new(api_config: RevoltConfig) -> Self {
+    pub fn new(api_config: StoatConfig) -> Self {
         Self {
             api_config: Arc::new(api_config),
             servers: Arc::new(RwLock::new(HashMap::new())),

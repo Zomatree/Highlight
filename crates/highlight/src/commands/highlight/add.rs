@@ -1,4 +1,4 @@
-use revolt::commands::{Command, ConsumeRest, Context, server_only};
+use stoat::commands::{Command, ConsumeRest, Context, server_only};
 
 use crate::{Error, State};
 
@@ -17,14 +17,12 @@ async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> R
                 .build()
                 .await?;
         }
-        Err(Error::PgError(e)) => {
-            if e.as_database_error().unwrap().is_unique_violation() {
-                ctx.http
-                    .send_message(&ctx.message.channel)
-                    .content("Keyword already exists.".to_string())
-                    .build()
-                    .await?;
-            }
+        Err(Error::PgError(e)) if e.as_database_error().unwrap().is_unique_violation() => {
+            ctx.http
+                .send_message(&ctx.message.channel)
+                .content("Keyword already exists.".to_string())
+                .build()
+                .await?;
         }
         res => return res,
     }

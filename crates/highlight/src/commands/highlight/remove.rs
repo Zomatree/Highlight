@@ -1,4 +1,4 @@
-use revolt::commands::{Command, ConsumeRest, Context, server_only};
+use stoat::commands::{Command, ConsumeRest, Context, server_only};
 
 use crate::{Error, State};
 

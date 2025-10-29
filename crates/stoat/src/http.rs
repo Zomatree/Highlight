@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use futures::TryFutureExt;
 use reqwest::{Client, Method, RequestBuilder};
-use revolt_models::v0::{Channel, Member, User};
+use stoat_models::v0::{Channel, Member, User};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -23,20 +23,27 @@ pub struct Feature {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct VoiceFeature {
-    pub enabled: bool,
-    pub url: String,
-    pub ws: String,
+pub struct VoiceNode {
+    pub name: String,
+    pub lat: f64,
+    pub lon: f64,
+    pub public_url: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct RevoltFeatures {
+pub struct VoiceFeature {
+    pub enabled: bool,
+    pub nodes: Vec<VoiceNode>
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct StoatFeatures {
     pub captcha: CaptchaFeature,
     pub email: bool,
     pub invite_only: bool,
     pub autumn: Feature,
     pub january: Feature,
-    pub voso: VoiceFeature,
+    pub livekit: VoiceFeature,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -49,9 +56,9 @@ pub struct BuildInformation {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct RevoltConfig {
+pub struct StoatConfig {
     pub revolt: String,
-    pub features: RevoltFeatures,
+    pub features: StoatFeatures,
     pub ws: String,
     pub app: String,
     pub vapid: String,
@@ -86,7 +93,7 @@ impl HttpClient {
         HttpRequest { builder }
     }
 
-    pub async fn get_root(&self) -> Result<RevoltConfig, Error> {
+    pub async fn get_root(&self) -> Result<StoatConfig, Error> {
         self.request(Method::GET, "/").response().await
     }
 

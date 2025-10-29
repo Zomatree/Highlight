@@ -1,5 +1,5 @@
 use reqwest::Method;
-use revolt_models::v0::{
+use stoat_models::v0::{
     DataMessageSend, Interactions, Masquerade, Message, ReplyIntent, SendableEmbed,
 };
 

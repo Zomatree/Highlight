@@ -26,7 +26,7 @@ pub trait CommandEventHandler {
         context: Context<Self::Error, Self::State>,
         error: Self::Error,
     ) -> Result<(), Self::Error> {
-        println!("Error: {error:?}");
+        log::error!("{error:?}");
 
         Ok(())
     }

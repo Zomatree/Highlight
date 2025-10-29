@@ -18,4 +18,4 @@ pub use events::EventHandler;
 pub use http::HttpClient;
 
 pub use async_trait::async_trait;
-pub use revolt_models::v0 as types;
+pub use stoat_models::v0 as types;

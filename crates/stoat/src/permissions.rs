@@ -1,14 +1,14 @@
 use std::borrow::Cow;
 
 use async_trait::async_trait;
-use revolt_models::v0::{Channel, Member, Server, User};
-use revolt_permissions::{
+use stoat_models::v0::{Channel, Member, Server, User};
+use stoat_permissions::{
     ChannelType, DEFAULT_PERMISSION_DIRECT_MESSAGE, Override, RelationshipStatus,
 };
 
 use crate::{GlobalCache, HttpClient};
 
-pub use revolt_permissions::{
+pub use stoat_permissions::{
     ChannelPermission, UserPermission, calculate_channel_permissions, calculate_server_permissions,
     calculate_user_permissions,
 };
@@ -67,7 +67,7 @@ impl<'a> PermissionQuery<'a> {
 }
 
 #[async_trait]
-impl revolt_permissions::PermissionQuery for PermissionQuery<'_> {
+impl stoat_permissions::PermissionQuery for PermissionQuery<'_> {
     async fn are_we_privileged(&mut self) -> bool {
         self.perspective.privileged
     }
@@ -100,19 +100,19 @@ impl revolt_permissions::PermissionQuery for PermissionQuery<'_> {
             for entry in &self.perspective.relations {
                 if entry.user_id == other_user.id {
                     return match entry.status {
-                        revolt_models::v0::RelationshipStatus::None => RelationshipStatus::None,
-                        revolt_models::v0::RelationshipStatus::User => RelationshipStatus::User,
-                        revolt_models::v0::RelationshipStatus::Friend => RelationshipStatus::Friend,
-                        revolt_models::v0::RelationshipStatus::Outgoing => {
+                        stoat_models::v0::RelationshipStatus::None => RelationshipStatus::None,
+                        stoat_models::v0::RelationshipStatus::User => RelationshipStatus::User,
+                        stoat_models::v0::RelationshipStatus::Friend => RelationshipStatus::Friend,
+                        stoat_models::v0::RelationshipStatus::Outgoing => {
                             RelationshipStatus::Outgoing
                         }
-                        revolt_models::v0::RelationshipStatus::Incoming => {
+                        stoat_models::v0::RelationshipStatus::Incoming => {
                             RelationshipStatus::Incoming
                         }
-                        revolt_models::v0::RelationshipStatus::Blocked => {
+                        stoat_models::v0::RelationshipStatus::Blocked => {
                             RelationshipStatus::Blocked
                         }
-                        revolt_models::v0::RelationshipStatus::BlockedOther => {
+                        stoat_models::v0::RelationshipStatus::BlockedOther => {
                             RelationshipStatus::BlockedOther
                         }
                     };

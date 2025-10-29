@@ -1,4 +1,4 @@
-use revolt::commands::{Command, Context, Rest};
+use stoat::commands::{Command, Context, Rest};
 
 use crate::{Error, State};
 
@@ -36,7 +36,15 @@ async fn help(ctx: Context<Error, State>, Rest(args): Rest) -> Result<(), Error>
         };
 
         let aliases = if !command.aliases.is_empty() {
-            format!("\n\n*Aliases: {}*", command.aliases.join(", "))
+            format!(
+                "\n\n*Aliases: {}*",
+                command
+                    .aliases
+                    .iter()
+                    .map(|alias| format!("`{alias}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
         } else {
             String::new()
         };

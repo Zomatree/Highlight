@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use futures::lock::Mutex;
 use rand::random;
-use revolt_models::v0::Message;
+use stoat_models::v0::Message;
 use tokio::sync::oneshot;
 
 use crate::Error;

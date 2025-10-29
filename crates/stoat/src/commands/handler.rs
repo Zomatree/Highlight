@@ -4,7 +4,7 @@ use crate::{
 };
 use async_recursion::async_recursion;
 use futures::{FutureExt, future::BoxFuture};
-use revolt_models::v0::Message;
+use stoat_models::v0::Message;
 use state::TypeMap;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio::sync::RwLock;

@@ -1,4 +1,4 @@
-use revolt::commands::{Command, Context};
+use stoat::commands::{Command, Context};
 
 use crate::{Error, State};
 

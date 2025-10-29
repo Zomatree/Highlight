@@ -2,13 +2,14 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub enum Error {
-    RevoltError(revolt::Error),
+    StoatError(stoat::Error),
     PgError(Arc<sqlx::Error>),
+    InvalidKeyword
 }
 
-impl From<revolt::Error> for Error {
-    fn from(value: revolt::Error) -> Self {
-        Self::RevoltError(value)
+impl From<stoat::Error> for Error {
+    fn from(value: stoat::Error) -> Self {
+        Self::StoatError(value)
     }
 }
 

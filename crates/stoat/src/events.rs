@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
-use revolt_database::events::client::EventV1;
-use revolt_models::v0::{
+use stoat_database::events::client::EventV1;
+use stoat_models::v0::{
     Channel, FieldsChannel, FieldsMessage, FieldsRole, FieldsServer, FieldsUser, Member, Message,
     RelationshipStatus, RemovalIntention,
 };
@@ -441,6 +441,6 @@ pub trait EventHandler: Sized {
     }
 
     async fn error(&self, context: Context, error: Self::Error) {
-        println!("Error: {error:?}");
+        log::error!("{error:?}");
     }
 }
