@@ -1,0 +1,65 @@
+name: Docker Build
+
+on:
+  push:
+    tags:
+      - "*"
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          platforms: linux/amd64
+          tags: ghcr.io/${{ github.repository_owner }}/highlight:latest
+          outputs: type=docker,dest=${{ runner.temp }}/highlight.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: highlight
+          path: ${{ runner.temp }}/highlight.tar
+
+  publish:
+    name: Publish to ghcr.io
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Login to Github Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: highlight
+          path: ${{ runner.temp }}
+
+      - name: Load image
+        run: |
+          docker load --input ${{ runner.temp }}/highlight.tar
+
+      - name: Push image
+        run: |
+          docker image push ghcr.io/${{ github.repository_owner }}/highlight:latest

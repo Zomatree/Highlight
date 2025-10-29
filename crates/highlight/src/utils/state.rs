@@ -41,6 +41,13 @@ impl State {
         }
     }
 
+    pub async fn ensure_db(&self) {
+        sqlx::raw_sql(include_str!("../../schema.psql"))
+            .execute(&self.pool)
+            .await
+            .unwrap();
+    }
+
     pub async fn fetch_keywords_for_user(
         &self,
         user_id: &str,
