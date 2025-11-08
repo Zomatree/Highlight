@@ -41,7 +41,7 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
         }
     }
 
-    pub async fn run(mut self, token: impl Into<String>) -> Result<(), Error> {
+    pub async fn run(mut self, token: impl Into<String>) -> Result<(), H::Error> {
         let token = token.into();
 
         self.http.token = Some(token.clone());

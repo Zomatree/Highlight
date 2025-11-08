@@ -148,6 +148,13 @@ impl<
                         .await
                         .unwrap();
                 };
+
+                if let Err(e) = self.event_handler.after_command(cmd_context.clone()).await {
+                    self.event_handler
+                        .error(cmd_context.clone(), e)
+                        .await
+                        .unwrap();
+                };
             }
         }
 
