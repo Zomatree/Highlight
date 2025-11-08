@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use stoat::commands::{Command, ConsumeRest, Context, server_only};
 
-use crate::{Error, State};
+use crate::{Error, MessageExt, State};
 
 async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> Result<(), Error> {
     let server_id = ctx.get_current_server().await.as_ref().unwrap().id.clone();
@@ -12,7 +14,8 @@ async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> R
             .send_message(&ctx.message.channel)
             .content(format!("Max keyword amount reached ({})", ctx.state.config.limits.max_keywords))
             .build()
-            .await?;
+            .await?
+            .delete_after(&ctx.http, Duration::from_secs(5));
 
         return Ok(())
     };
@@ -27,17 +30,19 @@ async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> R
                 .send_message(&ctx.message.channel)
                 .content("Added to your highlights.".to_string())
                 .build()
-                .await?;
+                .await?
+                .delete_after(&ctx.http, Duration::from_secs(5));
         }
         Err(Error::PgError(e)) if e.as_database_error().unwrap().is_unique_violation() => {
             ctx.http
                 .send_message(&ctx.message.channel)
                 .content("Keyword already exists.".to_string())
                 .build()
-                .await?;
+                .await?
+                .delete_after(&ctx.http, Duration::from_secs(5));
         }
         res => return res,
-    }
+    };
 
     Ok(())
 }

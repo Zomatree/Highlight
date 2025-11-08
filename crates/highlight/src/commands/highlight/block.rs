@@ -1,9 +1,11 @@
+use std::time::Duration;
+
 use stoat::{
     commands::{Command, Context},
     types::User,
 };
 
-use crate::{Error, State};
+use crate::{Error, State, utils::MessageExt};
 
 async fn block(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
     ctx.state
@@ -14,7 +16,8 @@ async fn block(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
         .send_message(&ctx.message.channel)
         .content(format!("Blocked {}", user.username))
         .build()
-        .await?;
+        .await?
+        .delete_after(&ctx.http, Duration::from_secs(5));
 
     Ok(())
 }

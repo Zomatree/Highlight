@@ -1,9 +1,11 @@
+use std::time::Duration;
+
 use stoat::{
     async_trait,
     commands::{Command, CommandEventHandler, Context},
 };
 
-use crate::{Error, State};
+use crate::{Error, State, utils::MessageExt};
 
 mod help;
 mod highlight;
@@ -16,6 +18,16 @@ pub struct CommandEvents;
 impl CommandEventHandler for CommandEvents {
     type Error = Error;
     type State = State;
+
+    async fn after_command(&self, ctx: Context<Error, State>) -> Result<(), Error> {
+        let Some(command) = ctx.command.as_ref() else { return Ok(()) };
+
+        if command.parents.get(0).is_some_and(|p| p == "highlight") {
+            ctx.message.delete_after(&ctx.http, Duration::from_secs(5));
+        };
+
+        Ok(())
+    }
 
     async fn error(&self, ctx: Context<Error, State>, error: Error) -> Result<(), Error> {
         match error {

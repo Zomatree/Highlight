@@ -1,10 +1,12 @@
+use std::time::Duration;
+
 use stoat::{
     commands::{Command, Context, HasChannelPermissions, server_only},
     permissions::ChannelPermission,
     types::User,
 };
 
-use crate::{Error, State};
+use crate::{Error, State, utils::MessageExt};
 
 async fn view(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
     let server_id = &ctx.get_current_server().await.as_ref().unwrap().id;
@@ -25,7 +27,9 @@ async fn view(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
             &user.username
         ))
         .build()
-        .await?;
+        .await?
+        .delete_after(&ctx.http, Duration::from_secs(5));
+
     Ok(())
 }
 

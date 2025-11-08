@@ -260,4 +260,19 @@ impl<
             .map(|(_, command)| command)
             .collect()
     }
+
+    pub async fn get_command_parents(&self, command: &Command<E, S>) -> Vec<Command<E, S>> {
+        let mut parents: Vec<Command<E, S>> = Vec::new();
+
+        for parent in &command.parents {
+            if let Some(last_parent) = parents.last() {
+                let child = last_parent.get_command(parent).unwrap();
+                parents.push(child);
+            } else {
+                parents.push(self.get_command(parent).await.unwrap());
+            }
+        };
+
+        parents
+    }
 }

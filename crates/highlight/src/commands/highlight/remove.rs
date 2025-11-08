@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use stoat::commands::{Command, ConsumeRest, Context, server_only};
 
-use crate::{Error, State};
+use crate::{Error, State, utils::MessageExt};
 
 async fn remove(
     ctx: Context<Error, State>,
@@ -18,14 +20,15 @@ async fn remove(
             .send_message(&ctx.message.channel)
             .content("Removed from your highlights.".to_string())
             .build()
-            .await?;
+            .await?
     } else {
         ctx.http
             .send_message(&ctx.message.channel)
             .content("Keyword doesnt exist.".to_string())
             .build()
-            .await?;
-    };
+            .await?
+    }
+    .delete_after(&ctx.http, Duration::from_secs(5));
 
     Ok(())
 }

@@ -21,6 +21,13 @@ pub trait CommandEventHandler {
         Ok(())
     }
 
+    async fn after_command(
+        &self,
+        context: Context<Self::Error, Self::State>,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     async fn error(
         &self,
         context: Context<Self::Error, Self::State>,

@@ -125,6 +125,12 @@ impl HttpClient {
         .response()
         .await
     }
+
+    pub async fn delete_message(&self, channel_id: &str, message_id: &str) -> Result<(), Error> {
+        self.request(Method::DELETE, format!("/channels/{channel_id}/messages/{message_id}"))
+            .send()
+            .await
+    }
 }
 
 pub struct HttpRequest {

@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use stoat::commands::{Command, Context, server_only};
 
-use crate::{Error, State};
+use crate::{Error, State, utils::MessageExt};
 
 mod add;
 mod block;
@@ -24,7 +26,8 @@ async fn highlight(ctx: Context<Error, State>) -> Result<(), Error> {
         .send_message(&ctx.message.channel)
         .content(format!("Your highlights are:\n{highlights}"))
         .build()
-        .await?;
+        .await?
+        .delete_after(&ctx.http, Duration::from_secs(5));
 
     Ok(())
 }

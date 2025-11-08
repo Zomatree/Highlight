@@ -10,7 +10,7 @@ use async_trait::async_trait;
 
 use crate::{
     Error,
-    commands::{CommandHandler, Context, Converter, checks::Check},
+    commands::{Context, Converter, checks::Check},
 };
 
 #[derive(Clone)]
@@ -22,6 +22,7 @@ pub struct Command<E, S> {
     pub aliases: Vec<String>,
     pub description: Option<String>,
     pub signature: Option<String>,
+    pub parents: Vec<String>,
 }
 
 impl<E, S> fmt::Debug for Command<E, S> {
@@ -58,10 +59,14 @@ impl<
             aliases: Vec::new(),
             description: None,
             signature: None,
+            parents: Vec::new(),
         }
     }
 
-    pub fn child(mut self, command: Self) -> Self {
+    pub fn child(mut self, mut command: Self) -> Self {
+        command.parents = self.parents.clone();
+        command.parents.push(self.name.clone());
+
         self.children.insert(command.name.clone(), command.clone());
 
         for alias in command.aliases.clone() {
