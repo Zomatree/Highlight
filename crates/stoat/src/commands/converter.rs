@@ -28,7 +28,7 @@ pub trait Converter<E: From<Error>, S: Send + Sync>: Sized {
 
 #[async_trait]
 impl<E: From<Error>, S: Send + Sync> Converter<E, S> for u32 {
-    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
+    async fn convert(_context: &Context<E, S>, input: String) -> Result<Self, E> {
         input
             .parse::<u32>()
             .map_err(|e| Error::ConverterError(e.to_string()).into())
@@ -37,7 +37,7 @@ impl<E: From<Error>, S: Send + Sync> Converter<E, S> for u32 {
 
 #[async_trait]
 impl<E: From<Error>, S: Send + Sync> Converter<E, S> for String {
-    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
+    async fn convert(_context: &Context<E, S>, input: String) -> Result<Self, E> {
         Ok(input)
     }
 }

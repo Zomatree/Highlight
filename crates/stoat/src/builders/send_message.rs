@@ -47,8 +47,8 @@ impl<'a> SendMessageBuilder<'a> {
         self
     }
 
-    pub fn reply(mut self, reply: ReplyIntent) -> Self {
-        self.data.replies.get_or_insert_default().push(reply);
+    pub fn reply(mut self, message_id: String, mention: bool) -> Self {
+        self.data.replies.get_or_insert_default().push(ReplyIntent { id: message_id, mention, fail_if_not_exists: None });
 
         self
     }

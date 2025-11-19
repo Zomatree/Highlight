@@ -2,11 +2,14 @@ use std::sync::Arc;
 
 use futures::TryFutureExt;
 use reqwest::{Client, Method, RequestBuilder};
-use stoat_models::v0::{Channel, Member, User};
 use serde::{Deserialize, Serialize};
+use stoat_models::v0::{Channel, Member, User};
 
 use crate::{
-    builders::{fetch_messages::FetchMessagesBuilder, send_message::SendMessageBuilder},
+    builders::{
+        edit_message::EditMessageBuilder, fetch_messages::FetchMessagesBuilder,
+        send_message::SendMessageBuilder,
+    },
     error::Error,
 };
 
@@ -33,7 +36,7 @@ pub struct VoiceNode {
 #[derive(Deserialize, Debug, Clone)]
 pub struct VoiceFeature {
     pub enabled: bool,
-    pub nodes: Vec<VoiceNode>
+    pub nodes: Vec<VoiceNode>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -127,9 +130,20 @@ impl HttpClient {
     }
 
     pub async fn delete_message(&self, channel_id: &str, message_id: &str) -> Result<(), Error> {
-        self.request(Method::DELETE, format!("/channels/{channel_id}/messages/{message_id}"))
-            .send()
-            .await
+        self.request(
+            Method::DELETE,
+            format!("/channels/{channel_id}/messages/{message_id}"),
+        )
+        .send()
+        .await
+    }
+
+    pub async fn edit_message<'a>(
+        &'a self,
+        channel_id: &'a str,
+        message_id: &'a str,
+    ) -> EditMessageBuilder<'a> {
+        EditMessageBuilder::new(self, channel_id, message_id)
     }
 }
 
