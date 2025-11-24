@@ -111,7 +111,7 @@ pub async fn server_only<
     context: Context<E, S>,
 ) -> Result<bool, E> {
     match context.get_current_channel().await {
-        Some(Channel::TextChannel { .. } | Channel::VoiceChannel { .. }) => Ok(true),
+        Some(Channel::TextChannel { .. }) => Ok(true),
         _ => Err(Error::NotInServer.into()),
     }
 }

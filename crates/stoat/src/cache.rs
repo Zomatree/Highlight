@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use stoat_models::v0::{Channel, Member, Message, Server, User};
+use stoat_models::v0::{Channel, ChannelVoiceState, Member, Message, Server, User, UserVoiceState};
 use tokio::sync::RwLock;
 
 use crate::http::StoatConfig;
@@ -17,6 +17,10 @@ pub struct GlobalCache {
     pub members: Arc<RwLock<HashMap<String, HashMap<String, Member>>>>,
     pub channels: Arc<RwLock<HashMap<String, Channel>>>,
     pub messages: Arc<RwLock<VecDeque<Message>>>,
+    pub voice_states: Arc<RwLock<HashMap<String, ChannelVoiceState>>>,
+
+    #[cfg(feature = "voice")]
+    pub voice_connections: Arc<RwLock<HashMap<String, crate::VoiceConnection>>>,
 
     pub current_user_id: Arc<RwLock<Option<String>>>,
 }
@@ -30,6 +34,11 @@ impl GlobalCache {
             members: Arc::new(RwLock::new(HashMap::new())),
             channels: Arc::new(RwLock::new(HashMap::new())),
             messages: Arc::new(RwLock::new(VecDeque::new())),
+            voice_states: Arc::new(RwLock::new(HashMap::new())),
+
+            #[cfg(feature = "voice")]
+            voice_connections: Arc::new(RwLock::new(HashMap::new())),
+
             current_user_id: Arc::new(RwLock::new(None)),
         }
     }
@@ -171,5 +180,75 @@ impl GlobalCache {
         let guard = self.current_user_id.read().await;
 
         self.users.read().await.get(guard.as_ref()?).cloned()
+    }
+
+    pub async fn insert_voice_state(&self, voice_state: ChannelVoiceState) {
+        self.voice_states
+            .write()
+            .await
+            .insert(voice_state.id.clone(), voice_state);
+    }
+
+    pub async fn remove_voice_state(&self, channel_id: &str) -> Option<ChannelVoiceState> {
+        self.voice_states.write().await.remove(channel_id)
+    }
+
+    pub async fn insert_voice_state_partipant(
+        &self,
+        channel_id: &str,
+        user_voice_state: UserVoiceState,
+    ) {
+        let mut lock = self.voice_states.write().await;
+
+        let channel_voice_state =
+            lock.entry(channel_id.to_string())
+                .or_insert_with(|| ChannelVoiceState {
+                    id: channel_id.to_string(),
+                    participants: Vec::new(),
+                });
+
+        channel_voice_state
+            .participants
+            .retain(|state| state.id != user_voice_state.id);
+        channel_voice_state.participants.push(user_voice_state);
+    }
+
+    pub async fn remove_voice_state_partipant(&self, channel_id: &str, user_id: &str) {
+        if let Some(channel_voice_state) = self.voice_states.write().await.get_mut(channel_id) {
+            channel_voice_state
+                .participants
+                .retain(|state| state.id != user_id);
+        };
+    }
+
+    pub async fn update_voice_state_partipant_with(
+        &self,
+        channel_id: &str,
+        user_id: &str,
+        f: impl FnOnce(&mut UserVoiceState),
+    ) {
+        if let Some(channel_voice_state) = self.voice_states.write().await.get_mut(channel_id) {
+            channel_voice_state
+                .participants
+                .iter_mut()
+                .find(|p| p.id == user_id)
+                .map(f);
+        };
+    }
+
+    #[cfg(feature = "voice")]
+    pub async fn insert_voice_connection(&self, connection: crate::VoiceConnection) {
+        self.voice_connections
+            .write()
+            .await
+            .insert(connection.channel_id(), connection);
+    }
+
+    #[cfg(feature = "voice")]
+    pub async fn remove_voice_connection(
+        &self,
+        channel_id: &str,
+    ) -> Option<crate::VoiceConnection> {
+        self.voice_connections.write().await.remove(channel_id)
     }
 }

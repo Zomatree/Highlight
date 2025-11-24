@@ -1,9 +1,6 @@
-use std::sync::Arc;
-
-use futures::TryFutureExt;
-use reqwest::{Client, Method, RequestBuilder};
+use reqwest::{Client, Method, RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
-use stoat_models::v0::{Channel, Member, User};
+use stoat_models::v0::{Channel, CreateVoiceUserResponse, DataJoinCall, Member, User};
 
 use crate::{
     builders::{
@@ -87,7 +84,8 @@ impl HttpClient {
     pub fn request(&self, method: Method, route: impl AsRef<str>) -> HttpRequest {
         let mut builder = self
             .inner
-            .request(method, format!("{}{}", &self.base, route.as_ref()));
+            .request(method, format!("{}{}", &self.base, route.as_ref()))
+            .header("Accept", "application/json");
 
         if let Some(token) = &self.token {
             builder = builder.header("x-bot-token", token);
@@ -145,6 +143,17 @@ impl HttpClient {
     ) -> EditMessageBuilder<'a> {
         EditMessageBuilder::new(self, channel_id, message_id)
     }
+
+    pub async fn join_call(
+        &self,
+        channel_id: &str,
+        data: DataJoinCall,
+    ) -> Result<CreateVoiceUserResponse, Error> {
+        self.request(Method::POST, format!("/channels/{channel_id}/join_call"))
+            .body(&data)
+            .response()
+            .await
+    }
 }
 
 pub struct HttpRequest {
@@ -164,19 +173,23 @@ impl HttpRequest {
         self
     }
 
+    pub async fn execute(self) -> Result<Response, Error> {
+        let response = self.builder.send().await?;
+
+        if response.status().is_client_error() || response.status().is_server_error() {
+            let text = response.json().await?;
+            Err(Error::HttpError(text))
+        } else {
+            Ok(response)
+        }
+    }
+
     pub async fn response<O: for<'a> Deserialize<'a>>(self) -> Result<O, Error> {
-        self.builder
-            .send()
-            .and_then(|body| body.json())
-            .map_err(|e| Error::HttpError(Arc::new(e)))
-            .await
+        self.execute().await?.json().await.map_err(Into::into)
     }
 
     pub async fn send(self) -> Result<(), Error> {
-        self.builder
-            .send()
-            .await
-            .map_err(|e| Error::HttpError(Arc::new(e)))?;
+        self.execute().await?;
 
         Ok(())
     }

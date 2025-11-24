@@ -3,8 +3,7 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 use stoat_database::events::client::EventV1;
 use stoat_models::v0::{
-    Channel, FieldsChannel, FieldsMessage, FieldsRole, FieldsServer, FieldsUser, Member, Message,
-    RelationshipStatus, RemovalIntention,
+    Channel, FieldsChannel, FieldsMember, FieldsMessage, FieldsRole, FieldsServer, FieldsUser, Member, Message, RelationshipStatus, RemovalIntention
 };
 
 use crate::{Context, Error, cache::GlobalCache};
@@ -55,6 +54,7 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
             user_settings: _,
             channel_unreads: _,
             policy_changes: _,
+            voice_states,
         } => {
             for user in users.into_iter().flatten() {
                 if user.relationship == RelationshipStatus::User {
@@ -74,6 +74,10 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
 
             for member in members.into_iter().flatten() {
                 state.insert_member(member).await;
+            }
+
+            for voice_state in voice_states.into_iter().flatten() {
+                state.insert_voice_state(voice_state).await;
             }
         }
         EventV1::Message(message) => {
@@ -182,8 +186,7 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
         EventV1::ChannelAck { .. } => {}
         EventV1::ChannelCreate(channel) => {
             match &channel {
-                Channel::TextChannel { id, server, .. }
-                | Channel::VoiceChannel { id, server, .. } => {
+                Channel::TextChannel { id, server, .. } => {
                     state
                         .update_server_with(&server, |server| server.channels.push(id.to_string()))
                         .await
@@ -196,8 +199,7 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
         EventV1::ChannelDelete { id } => {
             if let Some(channel) = state.remove_channel(&id).await {
                 match &channel {
-                    Channel::TextChannel { id, server, .. }
-                    | Channel::VoiceChannel { id, server, .. } => {
+                    Channel::TextChannel { id, server, .. } => {
                         state
                             .update_server_with(&server, |server| {
                                 server.channels.retain(|c_id| c_id != id)
@@ -233,30 +235,15 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
                         channel,
                         data,
                         (
-                            (name, (Channel::TextChannel, Channel::VoiceChannel)),
+                            (name, (Channel::TextChannel)),
                             (owner, (Channel::Group)),
-                            optional(
-                                description,
-                                (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
-                            ),
-                            optional(
-                                icon,
-                                (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
-                            ),
-                            (
-                                nsfw,
-                                (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
-                            ),
+                            optional(description, (Channel::Group, Channel::TextChannel)),
+                            optional(icon, (Channel::Group, Channel::TextChannel)),
+                            (nsfw, (Channel::Group, Channel::TextChannel)),
                             (active, (Channel::DirectMessage)),
                             optional(permissions, (Channel::Group)),
-                            (
-                                role_permissions,
-                                (Channel::TextChannel, Channel::VoiceChannel)
-                            ),
-                            optional(
-                                default_permissions,
-                                (Channel::TextChannel, Channel::VoiceChannel)
-                            ),
+                            (role_permissions, (Channel::TextChannel)),
+                            optional(default_permissions, (Channel::TextChannel)),
                             optional(
                                 last_message_id,
                                 (Channel::DirectMessage, Channel::Group, Channel::TextChannel)
@@ -270,19 +257,25 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
                                 channel,
                                 description,
                                 None,
-                                (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
+                                (Channel::Group, Channel::TextChannel)
                             ),
                             FieldsChannel::Icon => set_enum_varient_values!(
                                 channel,
                                 icon,
                                 None,
-                                (Channel::Group, Channel::TextChannel, Channel::VoiceChannel)
+                                (Channel::Group, Channel::TextChannel)
                             ),
                             FieldsChannel::DefaultPermissions => set_enum_varient_values!(
                                 channel,
                                 default_permissions,
                                 None,
-                                (Channel::TextChannel, Channel::VoiceChannel)
+                                (Channel::TextChannel)
+                            ),
+                            FieldsChannel::Voice => set_enum_varient_values!(
+                                channel,
+                                voice,
+                                None,
+                                (Channel::TextChannel)
                             ),
                         }
                     }
@@ -307,6 +300,7 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
             server,
             channels,
             emojis: _,
+            voice_states,
         } => {
             state.insert_server(server).await;
 
@@ -343,6 +337,23 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
         }
         EventV1::ServerMemberLeave { id, user, reason } => {
             state.remove_member(&id, &user).await;
+        }
+        EventV1::ServerMemberUpdate { id, data, clear } => {
+            state.update_member_with(&id.server, &id.user, |member| {
+                member.apply_options(data);
+
+                for field in clear {
+                    match field {
+                        FieldsMember::Nickname => member.nickname = None,
+                        FieldsMember::Avatar => member.avatar = None,
+                        FieldsMember::Roles => member.roles.clear(),
+                        FieldsMember::Timeout => member.timeout = None,
+                        FieldsMember::CanReceive => member.can_publish = true,
+                        FieldsMember::CanPublish => member.can_publish = true,
+                        FieldsMember::JoinedAt => (),
+                    }
+                }
+            }).await
         }
         EventV1::ServerRoleUpdate {
             id,
@@ -382,6 +393,27 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
                 })
                 .await
         }
+        EventV1::UserVoiceStateUpdate {
+            id,
+            channel_id,
+            data,
+        } => {
+            state
+                .update_voice_state_partipant_with(&channel_id, &id, |state| {
+                    state.apply_options(data)
+                })
+                .await
+        }
+        EventV1::VoiceChannelJoin { id, state: user_voice_state } => {
+            state.insert_voice_state_partipant(&id, user_voice_state).await;
+        }
+        EventV1::VoiceChannelMove { user, from, to, state: user_voice_state } => {
+            state.remove_voice_state_partipant(&from, &user).await;
+            state.insert_voice_state_partipant(&to, user_voice_state).await;
+        }
+        EventV1::VoiceChannelLeave { id, user } => {
+            state.remove_voice_state_partipant(&id, &user).await;
+        },
         _ => {}
     }
 }

@@ -20,7 +20,7 @@ impl EventHandler for Events {
     type Error = Error;
 
     async fn message(&self, ctx: Context, message: Message) -> Result<(), Error> {
-        if message.user.as_ref().unwrap().bot.is_some() {
+        if message.user.as_ref().is_none_or(|user| user.bot.is_some()) {
             return Ok(());
         };
 
@@ -39,7 +39,7 @@ impl EventHandler for Events {
         let channel = ctx.cache.get_channel(&message.channel).await.unwrap();
 
         let server_id = match &channel {
-            Channel::TextChannel { server, .. } | Channel::VoiceChannel { server, .. } => {
+            Channel::TextChannel { server, .. }  => {
                 server.clone()
             }
             _ => return Ok(()),

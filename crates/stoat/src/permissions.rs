@@ -219,6 +219,16 @@ impl stoat_permissions::PermissionQuery for PermissionQuery<'_> {
         }
     }
 
+    /// Is the member muted?
+    async fn do_we_have_publish_overwrites(&mut self) -> bool {
+        self.member.as_ref().is_none_or(|member| member.can_publish)
+    }
+
+    /// Is the member deafend?
+    async fn do_we_have_receive_overwrites(&mut self) -> bool {
+        self.member.as_ref().is_none_or(|member| member.can_receive)
+    }
+
     // * For calculating channel permission
 
     /// Get the type of the channel
@@ -233,9 +243,7 @@ impl stoat_permissions::PermissionQuery for PermissionQuery<'_> {
                 Cow::Borrowed(Channel::SavedMessages { .. })
                 | Cow::Owned(Channel::SavedMessages { .. }) => ChannelType::SavedMessages,
                 Cow::Borrowed(Channel::TextChannel { .. })
-                | Cow::Owned(Channel::TextChannel { .. })
-                | Cow::Borrowed(Channel::VoiceChannel { .. })
-                | Cow::Owned(Channel::VoiceChannel { .. }) => ChannelType::ServerChannel,
+                | Cow::Owned(Channel::TextChannel { .. }) => ChannelType::ServerChannel,
             }
         } else {
             ChannelType::Unknown
@@ -259,14 +267,6 @@ impl stoat_permissions::PermissionQuery for PermissionQuery<'_> {
                 | Cow::Owned(Channel::TextChannel {
                     default_permissions,
                     ..
-                })
-                | Cow::Borrowed(Channel::VoiceChannel {
-                    default_permissions,
-                    ..
-                })
-                | Cow::Owned(Channel::VoiceChannel {
-                    default_permissions,
-                    ..
                 }) => default_permissions.unwrap_or_default().into(),
                 _ => Default::default(),
             }
@@ -283,12 +283,6 @@ impl stoat_permissions::PermissionQuery for PermissionQuery<'_> {
                     role_permissions, ..
                 })
                 | Cow::Owned(Channel::TextChannel {
-                    role_permissions, ..
-                })
-                | Cow::Borrowed(Channel::VoiceChannel {
-                    role_permissions, ..
-                })
-                | Cow::Owned(Channel::VoiceChannel {
                     role_permissions, ..
                 }) => {
                     if let Some(server) = &self.server {
@@ -381,9 +375,7 @@ impl stoat_permissions::PermissionQuery for PermissionQuery<'_> {
         if let Some(channel) = &self.channel {
             match channel {
                 Cow::Borrowed(Channel::TextChannel { server, .. })
-                | Cow::Owned(Channel::TextChannel { server, .. })
-                | Cow::Borrowed(Channel::VoiceChannel { server, .. })
-                | Cow::Owned(Channel::VoiceChannel { server, .. }) => {
+                | Cow::Owned(Channel::TextChannel { server, .. }) => {
                     if let Some(known_server) = self.server.as_ref().map(|server| server.as_ref()) {
                         if server == &known_server.id {
                             // Already cached, return early.

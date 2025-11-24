@@ -1,10 +1,10 @@
 use std::{borrow::Cow, fmt::Debug, ops::Deref, sync::Arc};
 
+use state::TypeMap;
 use stoat_models::v0::{Channel, Member, Message, Server, User};
 use stoat_permissions::{
     PermissionValue, calculate_channel_permissions, calculate_server_permissions,
 };
-use state::TypeMap;
 
 use crate::{
     Context as MessageContext,
@@ -66,17 +66,11 @@ impl<E, S> Context<E, S> {
                 async move {
                     let channel = self.get_current_channel().await;
 
-                    CurrentServer(
-                        if let Some(
-                            Channel::TextChannel { server, .. }
-                            | Channel::VoiceChannel { server, .. },
-                        ) = channel
-                        {
-                            self.cache.get_server(server).await
-                        } else {
-                            None
-                        },
-                    )
+                    CurrentServer(if let Some(Channel::TextChannel { server, .. }) = channel {
+                        self.cache.get_server(server).await
+                    } else {
+                        None
+                    })
                 }
             })
             .await
