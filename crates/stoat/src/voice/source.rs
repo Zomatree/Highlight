@@ -10,10 +10,10 @@ use tokio::{
 use crate::voice::{CHANNELS, FRAME_SIZE, SAMPLE_RATE};
 
 #[async_trait]
-pub trait AudioSource {
+pub trait AudioSource: Sized {
     /// Reads 20ms of audio,
     async fn read(&mut self, buffer: &mut [i16]) -> bool;
-    async fn close(&mut self) {}
+    async fn close(self) {}
 }
 
 pub struct PCMAudio<B> {
@@ -127,7 +127,7 @@ impl AudioSource for FFmpegPCMAudio {
         false
     }
 
-    async fn close(&mut self) {
+    async fn close(mut self) {
         let _ = self.child.kill().await;
     }
 }

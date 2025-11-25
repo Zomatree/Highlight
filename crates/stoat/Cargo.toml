@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-voice = ["livekit"]
-default = []
+voice = ["livekit", "hound"]
+default = ["voice"]
 
 [dependencies]
 # Stoat
@@ -39,3 +39,6 @@ livekit = { version = "0.7.25", features = ["native-tls"], optional = true }
 livekit-api = { version = "0.4.10" }
 livekit-protocol = { version = "0.5.2" }
 livekit-runtime = { version = "0.4.0", features = ["tokio"] }
+
+# Wav files (Voice)
+hound = { version = "3.5.1", optional = true }

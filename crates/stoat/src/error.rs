@@ -25,6 +25,9 @@ pub enum Error {
     MissingChannelPermission { permissions: ChannelPermission },
     NotInServer,
     NotInDM,
+
+    NotAudioTrack,
+    NotVideoTrack,
 }
 
 impl From<reqwest::Error> for Error {
