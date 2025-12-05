@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use stoat::{
+    ChannelExt,
     commands::{Command, Context},
     types::User,
 };
@@ -12,8 +13,9 @@ async fn unblock(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
         .unblock_user(ctx.message.author.clone(), user.id.clone())
         .await?;
 
-    ctx.http
-        .send_message(&ctx.message.channel)
+    ctx.get_current_channel()
+        .await?
+        .send(&ctx.http)
         .content(format!("Unblocked {}", user.username))
         .build()
         .await?

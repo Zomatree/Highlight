@@ -19,7 +19,10 @@ impl EventHandler for Events {
     type Error = Error;
 
     async fn ready(&self, context: Context) -> Result<(), Self::Error> {
-        println!("Logged into {}", context.cache.get_current_user().await.unwrap().username);
+        println!(
+            "Logged into {}",
+            context.cache.get_current_user().await.unwrap().username
+        );
 
         Ok(())
     }

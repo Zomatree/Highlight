@@ -1,4 +1,3 @@
-use reqwest::Method;
 use stoat_models::v0::{
     DataMessageSend, Interactions, Masquerade, Message, ReplyIntent, SendableEmbed,
 };
@@ -48,7 +47,11 @@ impl<'a> SendMessageBuilder<'a> {
     }
 
     pub fn reply(mut self, message_id: String, mention: bool) -> Self {
-        self.data.replies.get_or_insert_default().push(ReplyIntent { id: message_id, mention, fail_if_not_exists: None });
+        self.data.replies.get_or_insert_default().push(ReplyIntent {
+            id: message_id,
+            mention,
+            fail_if_not_exists: None,
+        });
 
         self
     }
@@ -77,14 +80,7 @@ impl<'a> SendMessageBuilder<'a> {
         self
     }
 
-    pub async fn build(self) -> Result<Message, Error> {
-        self.http
-            .request(
-                Method::POST,
-                format!("/channels/{}/messages", &self.channel_id),
-            )
-            .body(&self.data)
-            .response()
-            .await
+    pub async fn build(&self) -> Result<Message, Error> {
+        self.http.send_message(&self.channel_id, &self.data).await
     }
 }

@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use stoat::{
+    ChannelExt,
     commands::{Command, Context, HasChannelPermissions, server_only},
     permissions::ChannelPermission,
     types::User,
@@ -9,7 +10,7 @@ use stoat::{
 use crate::{Error, State, utils::MessageExt};
 
 async fn view(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
-    let server_id = &ctx.get_current_server().await.as_ref().unwrap().id;
+    let server_id = ctx.get_current_server().await?.id;
 
     let highlights = ctx
         .state
@@ -20,8 +21,9 @@ async fn view(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
         .collect::<Vec<_>>()
         .join("\n");
 
-    ctx.http
-        .send_message(&ctx.message.channel)
+    ctx.get_current_channel()
+        .await?
+        .send(&ctx.http)
         .content(format!(
             "{}'s highlights are:\n{highlights}",
             &user.username

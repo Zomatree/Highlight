@@ -85,7 +85,7 @@ impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Channel {
 #[async_trait]
 impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Role {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
-        let Some(server) = context.get_current_server().await else {
+        let Ok(server) = context.get_current_server().await else {
             return Err(Error::ConverterError("Role not found".to_string()).into());
         };
 
@@ -107,7 +107,7 @@ impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Role {
 #[async_trait]
 impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Member {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
-        if let Some(server) = context.get_current_server().await {
+        if let Ok(server) = context.get_current_server().await {
             let user = <User as Converter<E, S>>::convert(context, input).await?;
 
             if let Some(member) = context.cache.get_member(&server.id, &user.id).await {

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use stoat::{
-    async_trait,
+    ChannelExt, async_trait,
     commands::{Command, CommandEventHandler, Context},
 };
 
@@ -10,6 +10,7 @@ use crate::{Error, State, utils::MessageExt};
 mod help;
 mod highlight;
 mod info;
+mod play;
 
 #[derive(Clone)]
 pub struct CommandEvents;
@@ -20,7 +21,9 @@ impl CommandEventHandler for CommandEvents {
     type State = State;
 
     async fn after_command(&self, ctx: Context<Error, State>) -> Result<(), Error> {
-        let Some(command) = ctx.command.as_ref() else { return Ok(()) };
+        let Some(command) = ctx.command.as_ref() else {
+            return Ok(());
+        };
 
         if command.parents.get(0).is_some_and(|p| p == "highlight") {
             ctx.message.delete_after(&ctx.http, Duration::from_secs(5));
@@ -32,8 +35,9 @@ impl CommandEventHandler for CommandEvents {
     async fn error(&self, ctx: Context<Error, State>, error: Error) -> Result<(), Error> {
         match error {
             Error::StoatError(stoat::Error::NotInServer) => {
-                ctx.http
-                    .send_message(&ctx.message.channel)
+                ctx.get_current_channel()
+                    .await?
+                    .send(&ctx.http)
                     .content("This command can only be used in a server".to_string())
                     .build()
                     .await?;
@@ -59,8 +63,9 @@ async fn test(ctx: Context<Error, State>) -> Result<(), Error> {
         )
         .await?;
 
-    ctx.http
-        .send_message(&ctx.message.channel)
+    ctx.get_current_channel()
+        .await?
+        .send(&ctx.http)
         .content(msg.content.unwrap())
         .build()
         .await?;
@@ -74,5 +79,6 @@ pub fn commands() -> Vec<Command<Error, State>> {
         help::command(),
         highlight::command(),
         info::command(),
+        // play::command(),
     ]
 }

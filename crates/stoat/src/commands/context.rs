@@ -7,7 +7,7 @@ use stoat_permissions::{
 };
 
 use crate::{
-    Context as MessageContext,
+    Context as MessageContext, Error,
     commands::{Command, Words, handler::Commands},
     permissions::user_permissions_query,
 };
@@ -47,114 +47,126 @@ impl<E, S> Context<E, S> {
         }
     }
 
-    pub async fn get_current_channel(&self) -> &Option<Channel> {
-        &self
-            .local_cache_async({
-                struct CurrentChannel(Option<Channel>);
+    pub async fn get_current_channel(&self) -> Result<Channel, Error> {
+        self.local_cache_async({
+            struct CurrentChannel(Result<Channel, Error>);
 
-                async move { CurrentChannel(self.cache.get_channel(&self.message.channel).await) }
-            })
-            .await
-            .0
+            async move {
+                CurrentChannel(
+                    self.cache
+                        .get_channel(&self.message.channel)
+                        .await
+                        .ok_or(Error::InternalError),
+                )
+            }
+        })
+        .await
+        .0
+        .clone()
     }
 
-    pub async fn get_current_server(&self) -> &Option<Server> {
-        &self
-            .local_cache_async({
-                struct CurrentServer(Option<Server>);
+    pub async fn get_current_server(&self) -> Result<Server, Error> {
+        self.local_cache_async({
+            struct CurrentServer(Result<Server, Error>);
 
-                async move {
-                    let channel = self.get_current_channel().await;
-
-                    CurrentServer(if let Some(Channel::TextChannel { server, .. }) = channel {
-                        self.cache.get_server(server).await
-                    } else {
-                        None
-                    })
-                }
-            })
-            .await
-            .0
-    }
-
-    pub async fn get_user(&self) -> &Option<User> {
-        &self
-            .local_cache_async({
-                struct CurrentUser(Option<User>);
-
-                async move {
-                    CurrentUser(if let Some(user) = self.message.user.as_ref() {
-                        Some(user.clone())
-                    } else if let Some(user) = self.cache.get_user(&self.message.author).await {
-                        Some(user.clone())
-                    } else if let Ok(user) = self.http.fetch_user(&self.message.author).await {
-                        Some(user)
-                    } else {
-                        None
-                    })
-                }
-            })
-            .await
-            .0
-    }
-
-    pub async fn get_member(&self) -> &Option<Member> {
-        &self
-            .local_cache_async({
-                struct CurrentMember(Option<Member>);
-
-                async move {
-                    CurrentMember(if let Some(member) = self.message.member.as_ref() {
-                        Some(member.clone())
-                    } else if let Some(server) = self.get_current_server().await {
-                        if let Some(member) = self
-                            .cache
-                            .get_member(&server.id, &self.message.author)
+            async move {
+                CurrentServer(
+                    if let Ok(Channel::TextChannel { server, .. }) =
+                        self.get_current_channel().await
+                    {
+                        self.cache
+                            .get_server(&server)
                             .await
-                        {
-                            Some(member.clone())
-                        } else if let Ok(member) = self
-                            .http
-                            .fetch_member(&server.id, &self.message.author)
-                            .await
-                        {
-                            Some(member)
-                        } else {
-                            None
-                        }
+                            .ok_or(Error::InternalError)
                     } else {
-                        None
-                    })
-                }
-            })
-            .await
-            .0
+                        Err(Error::InternalError)
+                    },
+                )
+            }
+        })
+        .await
+        .0
+        .clone()
+    }
+
+    pub async fn get_user(&self) -> Result<User, Error> {
+        self.local_cache_async({
+            struct CurrentUser(Result<User, Error>);
+
+            async move {
+                CurrentUser(if let Some(user) = self.message.user.as_ref() {
+                    Ok(user.clone())
+                } else if let Some(user) = self.cache.get_user(&self.message.author).await {
+                    Ok(user.clone())
+                } else if let Ok(user) = self.http.fetch_user(&self.message.author).await {
+                    Ok(user)
+                } else {
+                    Err(Error::InternalError)
+                })
+            }
+        })
+        .await
+        .0
+        .clone()
+    }
+
+    pub async fn get_member(&self) -> Result<Member, Error> {
+        self.local_cache_async({
+            struct CurrentMember(Result<Member, Error>);
+
+            async move {
+                CurrentMember(if let Some(member) = self.message.member.as_ref() {
+                    Ok(member.clone())
+                } else if let Ok(server) = self.get_current_server().await {
+                    if let Some(member) = self
+                        .cache
+                        .get_member(&server.id, &self.message.author)
+                        .await
+                    {
+                        Ok(member.clone())
+                    } else if let Ok(member) = self
+                        .http
+                        .fetch_member(&server.id, &self.message.author)
+                        .await
+                    {
+                        Ok(member)
+                    } else {
+                        Err(Error::InternalError)
+                    }
+                } else {
+                    Err(Error::InternalError)
+                })
+            }
+        })
+        .await
+        .0
+        .clone()
     }
 
     pub async fn get_author_channel_permissions(&self) -> PermissionValue {
         self.local_cache_async(async {
             struct ChannelPermissions(PermissionValue);
 
-            let Some(user) = self.get_user().await else {
+            let Ok(user) = self.get_user().await else {
                 return ChannelPermissions(0u64.into());
             };
             let member = self.get_member().await;
-            let Some(channel) = self.get_current_channel().await else {
+            let Ok(channel) = self.get_current_channel().await else {
                 return ChannelPermissions(0u64.into());
             };
             let server = self.get_current_server().await;
 
             let mut query =
-                user_permissions_query(self.cache.clone(), self.http.clone(), Cow::Borrowed(user))
+                user_permissions_query(self.cache.clone(), self.http.clone(), Cow::Owned(user))
                     .await
-                    .channel(Cow::Borrowed(channel));
+                    .channel(Cow::Owned(channel));
 
-            if let Some(server) = server {
-                query = query.server(Cow::Borrowed(server))
+            if let Ok(server) = server {
+                query = query.server(Cow::Owned(server))
             };
 
-            if let Some(member) = member {
-                query = query.member(Cow::Borrowed(member))
+            if let Ok(member) = member {
+                query = query.member(Cow::Owned(member))
             };
 
             ChannelPermissions(calculate_channel_permissions(&mut query).await)
@@ -167,22 +179,22 @@ impl<E, S> Context<E, S> {
         self.local_cache_async(async {
             struct ServerPermissions(PermissionValue);
 
-            let Some(user) = self.get_user().await else {
+            let Ok(user) = self.get_user().await else {
                 return ServerPermissions(0u64.into());
             };
             let member = self.get_member().await;
             let server = self.get_current_server().await;
 
             let mut query =
-                user_permissions_query(self.cache.clone(), self.http.clone(), Cow::Borrowed(user))
+                user_permissions_query(self.cache.clone(), self.http.clone(), Cow::Owned(user))
                     .await;
 
-            if let Some(server) = server {
-                query = query.server(Cow::Borrowed(server))
+            if let Ok(server) = server {
+                query = query.server(Cow::Owned(server))
             };
 
-            if let Some(member) = member {
-                query = query.member(Cow::Borrowed(member))
+            if let Ok(member) = member {
+                query = query.member(Cow::Owned(member))
             };
 
             ServerPermissions(calculate_server_permissions(&mut query).await)

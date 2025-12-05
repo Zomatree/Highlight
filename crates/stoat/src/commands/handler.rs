@@ -4,9 +4,9 @@ use crate::{
 };
 use async_recursion::async_recursion;
 use futures::{FutureExt, future::BoxFuture};
-use stoat_models::v0::Message;
 use state::TypeMap;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use stoat_models::v0::Message;
 use tokio::sync::RwLock;
 
 #[derive(Clone)]
@@ -278,7 +278,7 @@ impl<
             } else {
                 parents.push(self.get_command(parent).await.unwrap());
             }
-        };
+        }
 
         parents
     }

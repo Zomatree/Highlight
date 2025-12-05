@@ -1,4 +1,3 @@
-use reqwest::Method;
 use stoat_models::v0::{DataEditMessage, Message, SendableEmbed};
 
 use crate::{HttpClient, error::Error};
@@ -35,17 +34,9 @@ impl<'a> EditMessageBuilder<'a> {
         self
     }
 
-    pub async fn build(self) -> Result<Message, Error> {
+    pub async fn build(&self) -> Result<Message, Error> {
         self.http
-            .request(
-                Method::PATCH,
-                format!(
-                    "/channels/{}/messages/{}",
-                    &self.channel_id, &self.message_id
-                ),
-            )
-            .body(&self.data)
-            .response()
+            .edit_message(self.channel_id, self.message_id, &self.data)
             .await
     }
 }

@@ -5,7 +5,7 @@ pub struct Config {
     pub stoat: StoatConfig,
     pub bot: BotConfig,
     pub database: DatabaseConfig,
-    pub limits: LimitsConfig
+    pub limits: LimitsConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -27,5 +27,5 @@ pub struct DatabaseConfig {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LimitsConfig {
-    pub max_keywords: usize
+    pub max_keywords: usize,
 }

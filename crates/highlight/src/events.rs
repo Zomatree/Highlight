@@ -2,6 +2,7 @@ use std::{borrow::Cow, time::Duration};
 
 use stoat::{
     Context, EventHandler, async_trait,
+    builders::{fetch_messages::FetchMessagesBuilder, send_message::SendMessageBuilder},
     commands::CommandHandler,
     permissions::{ChannelPermission, calculate_channel_permissions, user_permissions_query},
     types::{Channel, Member, Message, RemovalIntention, SendableEmbed},
@@ -39,9 +40,7 @@ impl EventHandler for Events {
         let channel = ctx.cache.get_channel(&message.channel).await.unwrap();
 
         let server_id = match &channel {
-            Channel::TextChannel { server, .. }  => {
-                server.clone()
-            }
+            Channel::TextChannel { server, .. } => server.clone(),
             _ => return Ok(()),
         };
 
@@ -181,8 +180,7 @@ impl EventHandler for Events {
                             return;
                         };
 
-                        let mut messages = http
-                            .fetch_messages(&channel_id)
+                        let mut messages = FetchMessagesBuilder::new(&http, &channel_id)
                             .limit(5)
                             .nearby(message_id.clone())
                             .build_with_users()
@@ -235,7 +233,7 @@ impl EventHandler for Events {
 
                         let dm_channel = http.open_dm(&user_id).await.unwrap();
 
-                        http.send_message(dm_channel.id())
+                        SendMessageBuilder::new(&http, dm_channel.id())
                             .content(format!("In [{server_name} › {channel_name}]({jump_link}), you where mentioned with **{keyword}**"))
                             .embed(SendableEmbed {
                                 title: Some(keyword.to_string()),

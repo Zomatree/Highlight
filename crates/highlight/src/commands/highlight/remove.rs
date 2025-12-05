@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use stoat::commands::{Command, ConsumeRest, Context, server_only};
+use stoat::{
+    ChannelExt,
+    commands::{Command, ConsumeRest, Context, server_only},
+};
 
 use crate::{Error, State, utils::MessageExt};
 
@@ -8,7 +11,7 @@ async fn remove(
     ctx: Context<Error, State>,
     ConsumeRest(keyword): ConsumeRest,
 ) -> Result<(), Error> {
-    let server_id = ctx.get_current_server().await.as_ref().unwrap().id.clone();
+    let server_id = ctx.get_current_server().await?.id;
 
     let removed = ctx
         .state
@@ -16,14 +19,16 @@ async fn remove(
         .await?;
 
     if removed {
-        ctx.http
-            .send_message(&ctx.message.channel)
+        ctx.get_current_channel()
+            .await?
+            .send(&ctx.http)
             .content("Removed from your highlights.".to_string())
             .build()
             .await?
     } else {
-        ctx.http
-            .send_message(&ctx.message.channel)
+        ctx.get_current_channel()
+            .await?
+            .send(&ctx.http)
             .content("Keyword doesnt exist.".to_string())
             .build()
             .await?

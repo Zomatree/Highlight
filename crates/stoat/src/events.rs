@@ -3,7 +3,8 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 use stoat_database::events::client::EventV1;
 use stoat_models::v0::{
-    Channel, FieldsChannel, FieldsMember, FieldsMessage, FieldsRole, FieldsServer, FieldsUser, Member, Message, RelationshipStatus, RemovalIntention
+    Channel, FieldsChannel, FieldsMember, FieldsMessage, FieldsRole, FieldsServer, FieldsUser,
+    Member, Message, RelationshipStatus, RemovalIntention,
 };
 
 use crate::{Context, Error, cache::GlobalCache};
@@ -339,21 +340,23 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
             state.remove_member(&id, &user).await;
         }
         EventV1::ServerMemberUpdate { id, data, clear } => {
-            state.update_member_with(&id.server, &id.user, |member| {
-                member.apply_options(data);
+            state
+                .update_member_with(&id.server, &id.user, |member| {
+                    member.apply_options(data);
 
-                for field in clear {
-                    match field {
-                        FieldsMember::Nickname => member.nickname = None,
-                        FieldsMember::Avatar => member.avatar = None,
-                        FieldsMember::Roles => member.roles.clear(),
-                        FieldsMember::Timeout => member.timeout = None,
-                        FieldsMember::CanReceive => member.can_publish = true,
-                        FieldsMember::CanPublish => member.can_publish = true,
-                        FieldsMember::JoinedAt => (),
+                    for field in clear {
+                        match field {
+                            FieldsMember::Nickname => member.nickname = None,
+                            FieldsMember::Avatar => member.avatar = None,
+                            FieldsMember::Roles => member.roles.clear(),
+                            FieldsMember::Timeout => member.timeout = None,
+                            FieldsMember::CanReceive => member.can_publish = true,
+                            FieldsMember::CanPublish => member.can_publish = true,
+                            FieldsMember::JoinedAt => (),
+                        }
                     }
-                }
-            }).await
+                })
+                .await
         }
         EventV1::ServerRoleUpdate {
             id,
@@ -404,16 +407,28 @@ pub async fn update_state(event: EventV1, state: GlobalCache) {
                 })
                 .await
         }
-        EventV1::VoiceChannelJoin { id, state: user_voice_state } => {
-            state.insert_voice_state_partipant(&id, user_voice_state).await;
+        EventV1::VoiceChannelJoin {
+            id,
+            state: user_voice_state,
+        } => {
+            state
+                .insert_voice_state_partipant(&id, user_voice_state)
+                .await;
         }
-        EventV1::VoiceChannelMove { user, from, to, state: user_voice_state } => {
+        EventV1::VoiceChannelMove {
+            user,
+            from,
+            to,
+            state: user_voice_state,
+        } => {
             state.remove_voice_state_partipant(&from, &user).await;
-            state.insert_voice_state_partipant(&to, user_voice_state).await;
+            state
+                .insert_voice_state_partipant(&to, user_voice_state)
+                .await;
         }
         EventV1::VoiceChannelLeave { id, user } => {
             state.remove_voice_state_partipant(&id, &user).await;
-        },
+        }
         _ => {}
     }
 }

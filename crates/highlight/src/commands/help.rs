@@ -1,4 +1,7 @@
-use stoat::commands::{Command, Context, Rest};
+use stoat::{
+    ChannelExt,
+    commands::{Command, Context, Rest},
+};
 
 use crate::{Error, State};
 
@@ -19,15 +22,17 @@ async fn help(ctx: Context<Error, State>, Rest(args): Rest) -> Result<(), Error>
             .collect::<Vec<_>>()
             .join("\n");
 
-        ctx.http
-            .send_message(&ctx.message.channel)
+        ctx.get_current_channel()
+            .await?
+            .send(&ctx.http)
             .content(format!("All commands:\n{commands}"))
             .build()
             .await?;
     } else {
         let Some(command) = ctx.commands.get_command_from_slice(&args).await else {
-            ctx.http
-                .send_message(&ctx.message.channel)
+            ctx.get_current_channel()
+                .await?
+                .send(&ctx.http)
                 .content(format!("Command not found!"))
                 .build()
                 .await?;
@@ -50,8 +55,9 @@ async fn help(ctx: Context<Error, State>, Rest(args): Rest) -> Result<(), Error>
         };
 
         if command.children.is_empty() {
-            ctx.http
-                .send_message(&ctx.message.channel)
+            ctx.get_current_channel()
+                .await?
+                .send(&ctx.http)
                 .content(format!(
                     "## {} {}\n{}{}",
                     command.name,
@@ -75,8 +81,9 @@ async fn help(ctx: Context<Error, State>, Rest(args): Rest) -> Result<(), Error>
                 .collect::<Vec<_>>()
                 .join("\n");
 
-            ctx.http
-                .send_message(&ctx.message.channel)
+            ctx.get_current_channel()
+                .await?
+                .send(&ctx.http)
                 .content(format!(
                     "## {} {}\n{}{}\n\n### Subcommands:\n{}",
                     command.name,

@@ -6,7 +6,7 @@ use stoat_permissions::ChannelPermission;
 #[derive(Deserialize, Debug, Clone)]
 pub struct HttpError {
     pub r#type: String,
-    pub location: String
+    pub location: String,
 }
 
 #[derive(Debug, Clone)]
@@ -22,7 +22,9 @@ pub enum Error {
     BrokenChannel,
     InternalError,
     CheckFailure,
-    MissingChannelPermission { permissions: ChannelPermission },
+    MissingChannelPermission {
+        permissions: ChannelPermission,
+    },
     NotInServer,
     NotInDM,
 

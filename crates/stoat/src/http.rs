@@ -1,14 +1,11 @@
 use reqwest::{Client, Method, RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
-use stoat_models::v0::{Channel, CreateVoiceUserResponse, DataJoinCall, Member, User};
-
-use crate::{
-    builders::{
-        edit_message::EditMessageBuilder, fetch_messages::FetchMessagesBuilder,
-        send_message::SendMessageBuilder,
-    },
-    error::Error,
+use stoat_models::v0::{
+    BulkMessageResponse, Channel, CreateVoiceUserResponse, DataEditMessage, DataJoinCall,
+    DataMessageSend, Member, Message, OptionsQueryMessages, User,
 };
+
+use crate::error::Error;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct CaptchaFeature {
@@ -98,8 +95,15 @@ impl HttpClient {
         self.request(Method::GET, "/").response().await
     }
 
-    pub fn send_message<'a>(&'a self, channel_id: &'a str) -> SendMessageBuilder<'a> {
-        SendMessageBuilder::new(self, channel_id)
+    pub async fn send_message(
+        &self,
+        channel_id: &str,
+        data: &DataMessageSend,
+    ) -> Result<Message, Error> {
+        self.request(Method::POST, format!("/channels/{}/messages", channel_id))
+            .body(data)
+            .response()
+            .await
     }
 
     pub async fn fetch_user(&self, user_id: &str) -> Result<User, Error> {
@@ -108,8 +112,15 @@ impl HttpClient {
             .await
     }
 
-    pub fn fetch_messages<'a>(&'a self, channel_id: &'a str) -> FetchMessagesBuilder<'a> {
-        FetchMessagesBuilder::new(self, channel_id)
+    pub async fn fetch_messages<'a>(
+        &self,
+        channel_id: &str,
+        data: &OptionsQueryMessages,
+    ) -> Result<BulkMessageResponse, Error> {
+        self.request(Method::GET, format!("/channels/{}/messages", channel_id))
+            .query(data)
+            .response()
+            .await
     }
 
     pub async fn open_dm(&self, user_id: &str) -> Result<Channel, Error> {
@@ -136,23 +147,43 @@ impl HttpClient {
         .await
     }
 
-    pub async fn edit_message<'a>(
-        &'a self,
-        channel_id: &'a str,
-        message_id: &'a str,
-    ) -> EditMessageBuilder<'a> {
-        EditMessageBuilder::new(self, channel_id, message_id)
+    pub async fn edit_message(
+        &self,
+        channel_id: &str,
+        message_id: &str,
+        data: &DataEditMessage,
+    ) -> Result<Message, Error> {
+        self.request(
+            Method::PATCH,
+            format!("/channels/{}/messages/{}", channel_id, message_id),
+        )
+        .body(&data)
+        .response()
+        .await
     }
 
     pub async fn join_call(
         &self,
         channel_id: &str,
-        data: DataJoinCall,
+        data: &DataJoinCall,
     ) -> Result<CreateVoiceUserResponse, Error> {
         self.request(Method::POST, format!("/channels/{channel_id}/join_call"))
-            .body(&data)
+            .body(data)
             .response()
             .await
+    }
+
+    pub async fn fetch_message(
+        &self,
+        channel_id: &str,
+        message_id: &str,
+    ) -> Result<Message, Error> {
+        self.request(
+            Method::GET,
+            format!("/channels/{channel_id}/messages/{message_id}"),
+        )
+        .response()
+        .await
     }
 }
 

@@ -34,10 +34,8 @@ impl HasChannelPermissions {
 }
 
 #[async_trait]
-impl<
-    E: From<Error> + Send + Sync + 'static,
-    S: Send + Sync + 'static,
-> Check<E, S> for HasChannelPermissions
+impl<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 'static> Check<E, S>
+    for HasChannelPermissions
 {
     async fn run(&self, context: Context<E, S>) -> Result<bool, E> {
         let permissions = context.get_author_channel_permissions().await;
@@ -61,10 +59,8 @@ impl HasServerPermissions {
 }
 
 #[async_trait]
-impl<
-    E: From<Error> + Send + Sync + 'static,
-    S: Debug + Clone + Send + Sync + 'static,
-> Check<E, S> for HasServerPermissions
+impl<E: From<Error> + Send + Sync + 'static, S: Debug + Clone + Send + Sync + 'static> Check<E, S>
+    for HasServerPermissions
 {
     async fn run(&self, context: Context<E, S>) -> Result<bool, E> {
         let permissions = context.get_author_server_permissions().await;
@@ -82,10 +78,8 @@ impl<
 pub struct CheckAny<E, S>(pub Arc<Vec<Box<dyn Check<E, S>>>>);
 
 #[async_trait]
-impl<
-    E: From<Error> + Clone + Send + Sync + 'static,
-    S: Clone + Send + Sync + 'static,
-> Check<E, S> for CheckAny<E, S>
+impl<E: From<Error> + Clone + Send + Sync + 'static, S: Clone + Send + Sync + 'static> Check<E, S>
+    for CheckAny<E, S>
 {
     async fn run(&self, context: Context<E, S>) -> Result<bool, E> {
         for check in self.0.iter() {
@@ -104,26 +98,20 @@ impl<E, S> CheckAny<E, S> {
     }
 }
 
-pub async fn server_only<
-    E: From<Error> + Send + Sync + 'static,
-    S: Send + Sync + 'static,
->(
+pub async fn server_only<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 'static>(
     context: Context<E, S>,
 ) -> Result<bool, E> {
     match context.get_current_channel().await {
-        Some(Channel::TextChannel { .. }) => Ok(true),
+        Ok(Channel::TextChannel { .. }) => Ok(true),
         _ => Err(Error::NotInServer.into()),
     }
 }
 
-pub async fn dm_only<
-    E: From<Error> + Send + Sync + 'static,
-    S: Send + Sync + 'static,
->(
+pub async fn dm_only<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 'static>(
     context: Context<E, S>,
 ) -> Result<bool, E> {
     match context.get_current_channel().await {
-        Some(
+        Ok(
             Channel::DirectMessage { .. } | Channel::Group { .. } | Channel::SavedMessages { .. },
         ) => Ok(true),
         _ => Err(Error::NotInDM.into()),

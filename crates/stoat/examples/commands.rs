@@ -1,5 +1,5 @@
 use stoat::{
-    Client, Context, EventHandler, async_trait,
+    ChannelExt, Client, Context, EventHandler, async_trait,
     commands::{Command, CommandEventHandler, CommandHandler, Context as CommandContext},
     types::Message,
 };
@@ -48,8 +48,9 @@ impl EventHandler for Events {
 type CmdCtx = CommandContext<Error, ()>;
 
 async fn ping(ctx: CmdCtx) -> Result<(), Error> {
-    ctx.http
-        .send_message(&ctx.message.channel)
+    ctx.get_current_channel()
+        .await?
+        .send(&ctx.http)
         .content("Pong!".to_string())
         .reply(ctx.message.id.clone(), true)
         .build()

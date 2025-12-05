@@ -1,4 +1,3 @@
-use reqwest::Method;
 use stoat_models::v0::{
     BulkMessageResponse, Member, Message, MessageSort, OptionsQueryMessages, User,
 };
@@ -67,14 +66,7 @@ impl<'a> FetchMessagesBuilder<'a> {
     pub async fn build_raw(mut self, with_users: bool) -> Result<BulkMessageResponse, Error> {
         self.data.include_users = Some(with_users);
 
-        self.http
-            .request(
-                Method::GET,
-                format!("/channels/{}/messages", &self.channel_id),
-            )
-            .query(&self.data)
-            .response()
-            .await
+        self.http.fetch_messages(self.channel_id, &self.data).await
     }
 
     pub async fn build_with_users(self) -> Result<MessagesWithUsers, Error> {

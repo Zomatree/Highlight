@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use stoat::commands::{Command, Context, server_only};
+use stoat::{
+    ChannelExt,
+    commands::{Command, Context, server_only},
+};
 
 use crate::{Error, State, utils::MessageExt};
 
@@ -11,19 +14,20 @@ mod unblock;
 mod view;
 
 async fn highlight(ctx: Context<Error, State>) -> Result<(), Error> {
-    let server_id = &ctx.get_current_server().await.as_ref().unwrap().id;
+    let server_id = ctx.get_current_server().await?.id;
 
     let highlights = ctx
         .state
-        .fetch_keywords_for_user(&ctx.message.author, server_id)
+        .fetch_keywords_for_user(&ctx.message.author, &server_id)
         .await?
         .into_iter()
         .map(|keyword| format!("- {keyword}"))
         .collect::<Vec<_>>()
         .join("\n");
 
-    ctx.http
-        .send_message(&ctx.message.channel)
+    ctx.get_current_channel()
+        .await?
+        .send(&ctx.http)
         .content(format!("Your highlights are:\n{highlights}"))
         .build()
         .await?

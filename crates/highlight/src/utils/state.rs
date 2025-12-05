@@ -83,7 +83,7 @@ impl State {
             let regex = create_highlight_regex(&keywords)?;
 
             regexes.insert(user_id, (keywords, regex));
-        };
+        }
 
         Ok(regexes)
     }
