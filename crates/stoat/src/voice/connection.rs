@@ -1,23 +1,29 @@
-use std::{collections::HashMap, panic::AssertUnwindSafe, sync::Arc, time::Duration};
-
-use crate::{
-    AudioSink, AudioSource, Error, GlobalCache, VoiceEventHandler,
-    voice::{CHANNELS, FRAME_LENGTH_MS, FRAME_SIZE, SAMPLE_RATE},
+use std::{
+    collections::HashMap,
+    panic::AssertUnwindSafe,
+    sync::Arc,
+    time::{Duration, Instant},
 };
+
+use crate::{AudioSink, AudioSource, Error, GlobalCache, VideoSource, VoiceEventHandler};
 use futures::{FutureExt, StreamExt, future::try_join_all};
 use livekit::{
     Room, RoomEvent, RoomOptions,
     id::ParticipantIdentity,
     options::TrackPublishOptions,
     prelude::{RemoteParticipant, RemoteTrackPublication},
-    track::{LocalAudioTrack, LocalTrack, RemoteTrack, TrackKind, TrackSource},
+    track::{LocalAudioTrack, LocalTrack, LocalVideoTrack, RemoteTrack, TrackKind, TrackSource},
     webrtc::{
         audio_source::native::NativeAudioSource,
         audio_stream::native::NativeAudioStream,
-        prelude::{AudioFrame, AudioSourceOptions, RtcAudioSource},
+        prelude::{
+            AudioFrame, AudioSourceOptions, I420Buffer, RtcAudioSource, RtcVideoSource, VideoFrame,
+            VideoResolution, VideoRotation,
+        },
+        video_source::native::NativeVideoSource,
     },
 };
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::{sync::mpsc::UnboundedReceiver, time::sleep};
 
 #[derive(Debug, Clone)]
 pub struct VoiceConnection {
@@ -93,9 +99,9 @@ impl VoiceConnection {
     ) -> Result<(), Error> {
         let native_source = NativeAudioSource::new(
             AudioSourceOptions::default(),
-            SAMPLE_RATE as u32,
-            CHANNELS as u32,
-            FRAME_LENGTH_MS as u32 * 5,
+            source.sample_rate() as u32,
+            source.channels() as u32,
+            source.frame_length_ms() as u32 * 5,
         );
         let track = LocalAudioTrack::create_audio_track(
             "audio",
@@ -111,14 +117,14 @@ impl VoiceConnection {
             .publish_track(LocalTrack::Audio(track), options)
             .await?;
 
-        loop {
-            let mut audio_frame = AudioFrame {
-                data: vec![0i16; FRAME_SIZE].into(),
-                sample_rate: SAMPLE_RATE as u32,
-                num_channels: CHANNELS as u32,
-                samples_per_channel: (FRAME_SIZE / CHANNELS) as u32,
-            };
+        let mut audio_frame = AudioFrame {
+            data: vec![0i16; source.frame_size()].into(),
+            sample_rate: source.sample_rate() as u32,
+            num_channels: source.channels() as u32,
+            samples_per_channel: (source.frame_size() / source.channels()) as u32,
+        };
 
+        loop {
             let finished = source.read(audio_frame.data.to_mut()).await;
 
             native_source.capture_frame(&audio_frame).await.unwrap();
@@ -127,6 +133,59 @@ impl VoiceConnection {
                 source.close().await;
 
                 break;
+            };
+        }
+
+        Ok(())
+    }
+
+    pub async fn play_video<S: VideoSource + Send + Sync + 'static>(
+        &self,
+        mut source: S,
+    ) -> Result<(), Error> {
+        let (width, height) = source.resolution();
+        let native_source = NativeVideoSource::new(VideoResolution { width, height });
+        let track = LocalVideoTrack::create_video_track(
+            "video",
+            RtcVideoSource::Native(native_source.clone()),
+        );
+        let options = TrackPublishOptions {
+            source: TrackSource::Microphone,
+            ..Default::default()
+        };
+
+        self.room
+            .local_participant()
+            .publish_track(LocalTrack::Video(track), options)
+            .await?;
+
+        let mut video_frame = VideoFrame {
+            rotation: VideoRotation::VideoRotation0,
+            buffer: I420Buffer::new(width, height),
+            timestamp_us: 0,
+        };
+
+        loop {
+            let time = Instant::now();
+            let finished = source.read(video_frame.buffer.data_mut()).await;
+
+            native_source.capture_frame(&video_frame);
+
+            if finished {
+                source.close().await;
+
+                break;
+            };
+
+            let elapsed = time.elapsed();
+
+            if let Some(fps) = source.fps() {
+                sleep(
+                    Duration::from_secs_f32(1.0 / fps)
+                        .checked_sub(elapsed)
+                        .unwrap_or_default(),
+                )
+                .await;
             };
         }
 
@@ -165,8 +224,11 @@ impl VoiceConnection {
             unreachable!()
         };
 
-        let mut stream =
-            NativeAudioStream::new(track.rtc_track(), SAMPLE_RATE as i32, CHANNELS as i32);
+        let mut stream = NativeAudioStream::new(
+            track.rtc_track(),
+            sink.sample_rate() as i32,
+            sink.channels() as i32,
+        );
 
         while let Some(frame) = stream.next().await {
             sink.sink(participant.clone(), track.clone(), frame).await;

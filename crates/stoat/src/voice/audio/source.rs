@@ -7,11 +7,34 @@ use tokio::{
     process::{Child, ChildStdout, Command},
 };
 
-use crate::voice::{CHANNELS, FRAME_SIZE, SAMPLE_RATE};
-
 #[async_trait]
 pub trait AudioSource: Sized {
-    /// Reads 20ms of audio,
+    #[inline]
+    fn sample_rate(&self) -> usize {
+        48000
+    }
+    #[inline]
+    fn channels(&self) -> usize {
+        2
+    }
+    #[inline]
+    fn frame_length_ms(&self) -> usize {
+        20
+    }
+    #[inline]
+    fn sample_size(&self) -> usize {
+        size_of::<i16>() * self.channels()
+    }
+    #[inline]
+    fn samples_per_frame(&self) -> usize {
+        self.sample_rate() / 1000 * self.frame_length_ms()
+    }
+    #[inline]
+    fn frame_size(&self) -> usize {
+        self.samples_per_frame() * self.sample_size()
+    }
+
+    /// Reads frame_length_ms of audio, default amount is 20ms
     async fn read(&mut self, buffer: &mut [i16]) -> bool;
     async fn close(self) {}
 }
@@ -29,7 +52,7 @@ impl<B> PCMAudio<B> {
 #[async_trait]
 impl<B: AsyncRead + Send + Sync + Unpin> AudioSource for PCMAudio<B> {
     async fn read(&mut self, buffer: &mut [i16]) -> bool {
-        for i in 0..FRAME_SIZE {
+        for i in 0..self.frame_size() {
             if let Ok(data) = self.stream.read_i16_le().await {
                 buffer[i] = data
             } else {
@@ -43,8 +66,8 @@ impl<B: AsyncRead + Send + Sync + Unpin> AudioSource for PCMAudio<B> {
 
 pub struct FFmpegPCMAudioOptions {
     pub executable: String,
-    pub before_options: Option<Vec<String>>,
-    pub options: Option<Vec<String>>,
+    pub before_options: Vec<String>,
+    pub options: Vec<String>,
     pub blocksize: usize,
 }
 
@@ -52,8 +75,8 @@ impl Default for FFmpegPCMAudioOptions {
     fn default() -> Self {
         Self {
             executable: "ffmpeg".to_string(),
-            before_options: None,
-            options: None,
+            before_options: Vec::new(),
+            options: Vec::new(),
             blocksize: 1024 * 8,
         }
     }
@@ -70,13 +93,11 @@ impl FFmpegPCMAudio {
     }
 
     pub fn new_with_options(source: &str, options: FFmpegPCMAudioOptions) -> Self {
-        let mut command = Command::new(options.executable);
+        let mut command = Command::new(&options.executable);
 
-        if let Some(before_options) = options.before_options {
-            for arg in before_options {
-                command.arg(arg);
-            }
-        };
+        for arg in &options.before_options {
+            command.arg(arg);
+        }
 
         command
             .arg("-i")
@@ -86,20 +107,18 @@ impl FFmpegPCMAudio {
             .arg("-acodec")
             .arg("pcm_s16le")
             .arg("-ar")
-            .arg(SAMPLE_RATE.to_string())
+            .arg("48000")
             .arg("-ac")
-            .arg(CHANNELS.to_string())
+            .arg("2")
             .arg("-vn")
             .arg("-loglevel")
             .arg("warning")
             .arg("-blocksize")
             .arg(options.blocksize.to_string());
 
-        if let Some(options) = options.options {
-            for arg in options {
-                command.arg(arg);
-            }
-        };
+        for arg in &options.options {
+            command.arg(arg);
+        }
 
         let mut child = command
             .arg("pipe:1")
@@ -116,7 +135,7 @@ impl FFmpegPCMAudio {
 #[async_trait]
 impl AudioSource for FFmpegPCMAudio {
     async fn read(&mut self, buffer: &mut [i16]) -> bool {
-        for i in 0..FRAME_SIZE {
+        for i in 0..self.frame_size() {
             if let Ok(data) = self.stdout.read_i16_le().await {
                 buffer[i] = data
             } else {

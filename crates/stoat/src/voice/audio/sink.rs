@@ -4,10 +4,17 @@ use async_trait::async_trait;
 use hound::{self, SampleFormat, WavSpec, WavWriter};
 use livekit::{prelude::RemoteParticipant, track::RemoteAudioTrack, webrtc::prelude::AudioFrame};
 
-use crate::voice::{CHANNELS, SAMPLE_RATE};
-
 #[async_trait]
 pub trait AudioSink: Sized {
+    #[inline]
+    fn sample_rate(&self) -> usize {
+        48000
+    }
+    #[inline]
+    fn channels(&self) -> usize {
+        2
+    }
+
     async fn sink(
         &mut self,
         participant: RemoteParticipant,
@@ -27,8 +34,8 @@ impl<W: Write + Seek + Send + Sync> WavAudioSink<W> {
         let writer = WavWriter::new(
             BufWriter::new(writer),
             WavSpec {
-                channels: CHANNELS as u16,
-                sample_rate: SAMPLE_RATE as u32,
+                channels: 2,
+                sample_rate: 48000,
                 bits_per_sample: (size_of::<i16>() * 8) as u16,
                 sample_format: SampleFormat::Int,
             },
