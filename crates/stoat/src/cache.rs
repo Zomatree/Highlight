@@ -51,8 +51,8 @@ impl GlobalCache {
         self.servers.write().await.insert(server.id.clone(), server);
     }
 
-    pub async fn update_server_with(&self, server_id: &str, f: impl FnOnce(&mut Server)) {
-        self.servers.write().await.get_mut(server_id).map(f);
+    pub async fn update_server_with<R>(&self, server_id: &str, f: impl FnOnce(&mut Server) -> R) -> Option<R> {
+        self.servers.write().await.get_mut(server_id).map(f)
     }
 
     pub async fn remove_server(&self, server_id: &str) -> Option<Server> {
@@ -67,8 +67,8 @@ impl GlobalCache {
         self.users.write().await.insert(user.id.clone(), user);
     }
 
-    pub async fn update_user_with(&self, user_id: &str, f: impl FnOnce(&mut User)) {
-        self.users.write().await.get_mut(user_id).map(f);
+    pub async fn update_user_with<R>(&self, user_id: &str, f: impl FnOnce(&mut User) -> R) -> Option<R> {
+        self.users.write().await.get_mut(user_id).map(f)
     }
 
     pub async fn remove_user(&self, user_id: &str) -> Option<User> {
@@ -93,18 +93,18 @@ impl GlobalCache {
             .insert(member.id.user.clone(), member);
     }
 
-    pub async fn update_member_with(
+    pub async fn update_member_with<R>(
         &self,
         server_id: &str,
         user_id: &str,
-        f: impl FnOnce(&mut Member),
-    ) {
+        f: impl FnOnce(&mut Member) -> R,
+    ) -> Option<R> {
         self.members
             .write()
             .await
             .get_mut(server_id)
             .and_then(|members| members.get_mut(user_id))
-            .map(f);
+            .map(f)
     }
 
     pub async fn remove_member(&self, server_id: &str, user_id: &str) -> Option<Member> {
@@ -126,8 +126,8 @@ impl GlobalCache {
             .insert(channel.id().to_string(), channel);
     }
 
-    pub async fn update_channel_with(&self, channel_id: &str, f: impl FnOnce(&mut Channel)) {
-        self.channels.write().await.get_mut(channel_id).map(f);
+    pub async fn update_channel_with<R>(&self, channel_id: &str, f: impl FnOnce(&mut Channel) -> R) -> Option<R> {
+        self.channels.write().await.get_mut(channel_id).map(f)
     }
 
     pub async fn remove_channel(&self, channel_id: &str) -> Option<Channel> {
@@ -153,13 +153,17 @@ impl GlobalCache {
         }
     }
 
-    pub async fn update_message_with(&self, message_id: &str, f: impl FnOnce(&mut Message)) {
+    pub async fn update_message_with<R>(
+        &self,
+        message_id: &str,
+        f: impl FnOnce(&mut Message) -> R,
+    ) -> Option<R> {
         self.messages
             .write()
             .await
             .iter_mut()
             .find(|msg| &msg.id == message_id)
-            .map(f);
+            .map(f)
     }
 
     pub async fn remove_message(&self, message_id: &str) -> Option<Message> {
@@ -213,27 +217,39 @@ impl GlobalCache {
         channel_voice_state.participants.push(user_voice_state);
     }
 
-    pub async fn remove_voice_state_partipant(&self, channel_id: &str, user_id: &str) {
+    pub async fn remove_voice_state_partipant(&self, channel_id: &str, user_id: &str) -> Option<UserVoiceState> {
         if let Some(channel_voice_state) = self.voice_states.write().await.get_mut(channel_id) {
-            channel_voice_state
+            if let Some((i, _)) = channel_voice_state
                 .participants
-                .retain(|state| state.id != user_id);
-        };
+                .iter()
+                .enumerate()
+                .find(|(_, state)| &state.id == user_id) {
+                    Some(channel_voice_state
+                        .participants
+                        .remove(i))
+                } else {
+                    None
+                }
+        } else {
+            None
+        }
     }
 
-    pub async fn update_voice_state_partipant_with(
+    pub async fn update_voice_state_partipant_with<R>(
         &self,
         channel_id: &str,
         user_id: &str,
-        f: impl FnOnce(&mut UserVoiceState),
-    ) {
+        f: impl FnOnce(&mut UserVoiceState) -> R,
+    ) -> Option<R> {
         if let Some(channel_voice_state) = self.voice_states.write().await.get_mut(channel_id) {
             channel_voice_state
                 .participants
                 .iter_mut()
                 .find(|p| p.id == user_id)
-                .map(f);
-        };
+                .map(f)
+        } else {
+            None
+        }
     }
 
     #[cfg(feature = "voice")]

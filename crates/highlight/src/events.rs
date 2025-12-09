@@ -135,6 +135,7 @@ impl EventHandler for Events {
                 let waiters = ctx.notifiers.clone();
                 let http = ctx.http.clone();
                 let state = self.state.clone();
+                let api_config = ctx.cache.api_config.clone();
 
                 async move {
                     if let Some(captures) = regex.captures(&content) {
@@ -190,7 +191,8 @@ impl EventHandler for Events {
                         messages.messages.sort_by(|a, b| a.id.cmp(&b.id));
 
                         let jump_link = format!(
-                            "https://stoat.chat/server/{server_id}/channel/{channel_id}/{message_id}"
+                            "{}/server/{server_id}/channel/{channel_id}/{message_id}",
+                            &api_config.app,
                         );
                         let keyword = group.as_str();
 
@@ -254,7 +256,6 @@ impl EventHandler for Events {
     async fn server_member_join(
         &self,
         ctx: Context,
-        server_id: String,
         member: Member,
     ) -> Result<(), Error> {
         if let Some(set) = self
@@ -273,8 +274,7 @@ impl EventHandler for Events {
     async fn server_member_leave(
         &self,
         ctx: Context,
-        server_id: String,
-        user_id: String,
+        member: Member,
         reason: RemovalIntention,
     ) -> Result<(), Error> {
         if let Some(set) = self
@@ -282,9 +282,9 @@ impl EventHandler for Events {
             .known_not_in_server
             .write()
             .await
-            .get_mut(&server_id)
+            .get_mut(&member.id.server)
         {
-            set.insert(user_id);
+            set.insert(member.id.user);
         };
 
         Ok(())

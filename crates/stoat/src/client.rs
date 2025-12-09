@@ -1,6 +1,5 @@
 use std::{panic::AssertUnwindSafe, sync::Arc, time::Duration};
 
-use async_recursion::async_recursion;
 use futures::{FutureExt, future::join};
 use stoat_database::events::{client::EventV1, server::ClientMessage};
 use tokio::sync::{
@@ -9,7 +8,7 @@ use tokio::sync::{
 };
 
 use crate::{
-    Context, Error,
+    Context,
     cache::GlobalCache,
     events::{EventHandler, update_state},
     http::HttpClient,
@@ -95,8 +94,6 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
 
     pub async fn handle_event(&self, event: EventV1) {
         let wrapper = AssertUnwindSafe(async {
-            update_state(event.clone(), self.state.clone()).await;
-
             let context = Context {
                 cache: self.state.clone(),
                 http: self.http.clone(),
@@ -104,52 +101,11 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
                 events: self.events.clone().unwrap(),
             };
 
-            if let Err(e) = self.call_event(context.clone(), event).await {
-                self.handler.error(context, e).await;
-            }
+            update_state(event.clone(), context.clone(), self.handler.clone()).await
         });
 
         if let Err(e) = wrapper.catch_unwind().await {
             log::error!("{e:?}");
-        }
-    }
-
-    #[async_recursion]
-    pub async fn call_event(&self, context: Context, event: EventV1) -> Result<(), H::Error> {
-        match event {
-            EventV1::Bulk { v } => {
-                for e in v {
-                    self.call_event(context.clone(), e).await?;
-                }
-
-                Ok(())
-            }
-            EventV1::Authenticated => self.handler.authenticated(context).await,
-            EventV1::Ready { .. } => self.handler.ready(context).await,
-            EventV1::Message(message) => {
-                self.waiters.invoke_message_waiters(&message).await?;
-
-                self.handler.message(context, message).await
-            }
-            EventV1::ChannelStartTyping { id, user } => {
-                self.waiters
-                    .invoke_typing_start_waiters(&(id.clone(), user.clone()))
-                    .await?;
-
-                self.handler.start_typing(context, id, user).await
-            }
-            EventV1::ChannelStopTyping { id, user } => {
-                self.handler.stop_typing(context, id, user).await
-            }
-            EventV1::ServerMemberJoin { id, member, .. } => {
-                self.handler.server_member_join(context, id, member).await
-            }
-            EventV1::ServerMemberLeave { id, user, reason } => {
-                self.handler
-                    .server_member_leave(context, id, user, reason)
-                    .await
-            }
-            _ => Ok(()),
         }
     }
 }

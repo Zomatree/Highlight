@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, fmt::Debug, sync::Arc, time::Duration};
 
 use futures::lock::Mutex;
 use rand::random;
@@ -63,22 +63,21 @@ impl Notifiers {
         response?
     }
 
-    async fn inner_invoke<M: Clone>(&self, waiters: &WaiterMap<M>, value: &M) -> Result<(), Error> {
+    async fn inner_invoke<M: Clone + Debug>(&self, waiters: &WaiterMap<M>, value: &M) {
         let lock = waiters.lock().await.clone();
 
         for (id, waiter) in lock {
             if (waiter.check)(value) {
                 if let Some(oneshot) = waiter.oneshot.lock().await.take() {
-                    oneshot
-                        .send(value.clone())
-                        .map_err(|_| Error::BrokenChannel)?;
+                    if let Err(e) = oneshot
+                        .send(value.clone()) {
+                            log::error!("Notifier failed with payload {e:?}")
+                        }
                 }
 
                 waiters.lock().await.remove(&id);
             }
         }
-
-        Ok(())
     }
 
     pub async fn wait_for_message<F: Fn(&Message) -> bool + Send + Sync + 'static>(
@@ -89,7 +88,7 @@ impl Notifiers {
         self.inner_wait(&self.messages, check, timeout).await
     }
 
-    pub async fn invoke_message_waiters(&self, message: &Message) -> Result<(), Error> {
+    pub async fn invoke_message_waiters(&self, message: &Message) {
         self.inner_invoke(&self.messages, message).await
     }
 
@@ -104,7 +103,7 @@ impl Notifiers {
     pub async fn invoke_typing_start_waiters(
         &self,
         values: &(String, String),
-    ) -> Result<(), Error> {
+    ) {
         self.inner_invoke(&self.typing_start, values).await
     }
 }

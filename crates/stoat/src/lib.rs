@@ -25,3 +25,5 @@ pub use voice::*;
 
 pub use async_trait::async_trait;
 pub use stoat_models::v0 as types;
+
+pub type Result<T, E = Error> = std::result::Result<T, E>;

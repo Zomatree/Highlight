@@ -1,9 +1,8 @@
 use crate::{
-    Error, HttpClient,
-    builders::{
+    Error, HttpClient, builders::{
         edit_message::EditMessageBuilder, fetch_messages::FetchMessagesBuilder,
         send_message::SendMessageBuilder,
-    },
+    }, GlobalCache,
 };
 use async_trait::async_trait;
 use stoat_models::v0::{Channel, Message};
@@ -14,6 +13,7 @@ pub trait ChannelExt {
     fn send<'a>(&'a self, http: &'a HttpClient) -> SendMessageBuilder<'a>;
     async fn fetch_message(&self, http: &HttpClient, message_id: &str) -> Result<Message, Error>;
     fn fetch_messages<'a>(&'a self, http: &'a HttpClient) -> FetchMessagesBuilder<'a>;
+    async fn join_call(&self, http: &HttpClient, cache: &GlobalCache, node: Option<String>) -> Result<crate::VoiceConnection, Error>;
 }
 
 #[async_trait]
@@ -35,6 +35,17 @@ impl ChannelExt for Channel {
 
     fn fetch_messages<'a>(&'a self, http: &'a HttpClient) -> FetchMessagesBuilder<'a> {
         FetchMessagesBuilder::new(http, self.id())
+    }
+
+    #[cfg(feature = "voice")]
+    async fn join_call(&self, http: &HttpClient, cache: &GlobalCache, node: Option<String>) -> Result<crate::VoiceConnection, Error> {
+        let response = http.join_call(self.id(), &stoat_models::v0::DataJoinCall {
+            node,
+            force_disconnect: None,
+            recipients: None,
+        }).await?;
+
+        crate::VoiceConnection::connect(cache, &response.url, &response.token).await
     }
 }
 
