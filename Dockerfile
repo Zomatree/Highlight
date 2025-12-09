@@ -1,6 +1,6 @@
 FROM rust:1.90-slim AS builder
 
-RUN apt-get update && apt-get install -y pkg-config libssl-dev clang
+RUN apt-get update && apt-get install -y pkg-config libssl-dev clang libva-dev
 
 COPY Cargo.toml Cargo.lock /app/
 RUN mkdir /app/crates
