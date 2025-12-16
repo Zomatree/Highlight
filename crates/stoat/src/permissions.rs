@@ -152,11 +152,7 @@ impl stoat_permissions::PermissionQuery for PermissionQuery<'_> {
         if let Some(server) = &self.server {
             if self.member.is_some() {
                 true
-            } else if let Some(member) = self
-                .cache
-                .get_member(&server.id, &self.perspective.id)
-                .await
-            {
+            } else if let Some(member) = self.cache.get_member(&server.id, &self.perspective.id) {
                 self.member = Some(Cow::Owned(member.clone()));
 
                 true
@@ -358,7 +354,7 @@ impl stoat_permissions::PermissionQuery for PermissionQuery<'_> {
                         .find(|recipient| recipient != &&self.perspective.id)
                         .expect("Missing recipient for DM");
 
-                    if let Some(user) = self.cache.get_user(recipient_id).await {
+                    if let Some(user) = self.cache.get_user(recipient_id) {
                         self.user.replace(Cow::Owned(user.clone()));
                     } else if let Ok(user) = self.http.fetch_user(recipient_id).await {
                         self.user.replace(Cow::Owned(user));
@@ -383,7 +379,7 @@ impl stoat_permissions::PermissionQuery for PermissionQuery<'_> {
                         }
                     }
 
-                    if let Some(server) = self.cache.get_server(server).await {
+                    if let Some(server) = self.cache.get_server(server) {
                         self.server.replace(Cow::Owned(server.clone()));
                     }
                 }
@@ -393,12 +389,12 @@ impl stoat_permissions::PermissionQuery for PermissionQuery<'_> {
     }
 }
 
-pub async fn user_permissions_query<'a>(
+pub fn user_permissions_query<'a>(
     cache: GlobalCache,
     http: HttpClient,
     user: Cow<'a, User>,
 ) -> PermissionQuery<'a> {
-    let ourself = cache.get_current_user().await.unwrap();
+    let ourself = cache.get_current_user().unwrap();
 
     PermissionQuery::new(cache, http, Cow::Owned(ourself)).user(user)
 }

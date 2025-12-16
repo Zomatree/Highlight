@@ -1,6 +1,6 @@
 use crate::{
     Context as MessageContext, Error,
-    commands::{Command, CommandEventHandler, Context, Words},
+    commands::{Check, Command, CommandEventHandler, Context, Words},
 };
 use async_recursion::async_recursion;
 use futures::{FutureExt, future::BoxFuture};
@@ -22,6 +22,7 @@ pub struct CommandHandler<H: CommandEventHandler + Clone + Send + Sync + 'static
         >,
     >,
     commands: Commands<H::Error, H::State>,
+    checks: Vec<Arc<dyn Check<H::Error, H::State>>>,
     event_handler: H,
     state: H::State,
 }
@@ -36,6 +37,7 @@ impl<
         Self {
             prefix: Arc::new(Box::new(|_, _| async move { Ok(vec![]) }.boxed())),
             commands: Commands::new(),
+            checks: Vec::new(),
             event_handler,
             state,
         }
@@ -79,6 +81,26 @@ impl<
         }
 
         self
+    }
+
+    pub fn check<C: Check<E, S>>(mut self, check: C) -> Self {
+        self.checks.push(Arc::new(check));
+
+        self
+    }
+
+    pub async fn can_run(&self, context: Context<E, S>) -> Result<bool, E> {
+        for check in &self.checks {
+            if check.run(context.clone()).await? == false {
+                return Err(Error::CheckFailure.into());
+            }
+        }
+
+        if let Some(command) = &context.command {
+            return command.can_run(context.clone()).await;
+        }
+
+        Ok(true)
     }
 
     pub async fn process_commands(
@@ -136,7 +158,7 @@ impl<
         };
 
         if let Some(command) = cmd_context.command.as_ref() {
-            if let Err(e) = command.can_run(cmd_context.clone()).await {
+            if let Err(e) = self.can_run(cmd_context.clone()).await {
                 self.event_handler
                     .error(cmd_context.clone(), e)
                     .await

@@ -101,7 +101,7 @@ impl<E, S> CheckAny<E, S> {
 pub async fn server_only<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 'static>(
     context: Context<E, S>,
 ) -> Result<bool, E> {
-    match context.get_current_channel().await {
+    match context.get_current_channel() {
         Ok(Channel::TextChannel { .. }) => Ok(true),
         _ => Err(Error::NotInServer.into()),
     }
@@ -110,10 +110,41 @@ pub async fn server_only<E: From<Error> + Send + Sync + 'static, S: Send + Sync 
 pub async fn dm_only<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 'static>(
     context: Context<E, S>,
 ) -> Result<bool, E> {
-    match context.get_current_channel().await {
+    match context.get_current_channel() {
         Ok(
             Channel::DirectMessage { .. } | Channel::Group { .. } | Channel::SavedMessages { .. },
         ) => Ok(true),
         _ => Err(Error::NotInDM.into()),
+    }
+}
+
+pub async fn is_owner<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 'static>(
+    context: Context<E, S>,
+) -> Result<bool, E> {
+    if let Some(user) = context.cache.get_current_user() {
+        if let Some(bot) = user.bot {
+            if &bot.owner_id == &context.message.author {
+                return Ok(true);
+            };
+        };
+    };
+
+    Err(Error::NotOwner.into())
+}
+
+pub async fn is_nsfw<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 'static>(
+    context: Context<E, S>,
+) -> Result<bool, E> {
+    let channel = context.get_current_channel()?;
+
+    let is_nsfw = match channel {
+        Channel::DirectMessage { .. } | Channel::SavedMessages { .. } => true,
+        Channel::Group { nsfw, .. } | Channel::TextChannel { nsfw, .. } => nsfw,
+    };
+
+    if is_nsfw {
+        Ok(true)
+    } else {
+        Err(Error::NotNsfw.into())
     }
 }

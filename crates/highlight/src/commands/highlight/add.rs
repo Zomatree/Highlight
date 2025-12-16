@@ -8,7 +8,7 @@ use stoat::{
 use crate::{Error, MessageExt, State};
 
 async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> Result<(), Error> {
-    let server_id = ctx.get_current_server().await.as_ref().unwrap().id.clone();
+    let server_id = ctx.get_current_server().as_ref().unwrap().id.clone();
 
     let current_keywords = ctx
         .state
@@ -16,8 +16,7 @@ async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> R
         .await?;
 
     if current_keywords.len() >= ctx.state.config.limits.max_keywords {
-        ctx.get_current_channel()
-            .await?
+        ctx.get_current_channel()?
             .send(&ctx.http)
             .content(format!(
                 "Max keyword amount reached ({})",
@@ -36,8 +35,7 @@ async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> R
         .await
     {
         Ok(_) => {
-            ctx.get_current_channel()
-                .await?
+            ctx.get_current_channel()?
                 .send(&ctx.http)
                 .content("Added to your highlights.".to_string())
                 .build()
@@ -45,8 +43,7 @@ async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> R
                 .delete_after(&ctx.http, Duration::from_secs(5));
         }
         Err(Error::PgError(e)) if e.as_database_error().unwrap().is_unique_violation() => {
-            ctx.get_current_channel()
-                .await?
+            ctx.get_current_channel()?
                 .send(&ctx.http)
                 .content("Keyword already exists.".to_string())
                 .build()

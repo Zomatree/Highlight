@@ -6,11 +6,10 @@ use stoat::{
 use crate::{Error, State};
 
 async fn info(ctx: Context<Error, State>) -> Result<(), Error> {
-    let server_count = ctx.cache.servers.read().await.len();
+    let server_count = ctx.cache.servers.len();
     let trigger_word_count = ctx.state.get_total_keyword_count().await?;
 
-    ctx.get_current_channel()
-        .await?
+    ctx.get_current_channel()?
         .send(&ctx.http)
         .content(format!(
             "\
@@ -18,7 +17,9 @@ async fn info(ctx: Context<Error, State>) -> Result<(), Error> {
 Lets users create trigger words and be alerted when those triggers are said.
 
 Running in `{server_count}` servers!
-There are `{trigger_word_count}` trigger words in my database."
+There are `{trigger_word_count}` trigger words in my database.
+
+*My source code can be found at [Zomatree/Highlight](<https://github.com/Zomatree/Highlight>).*"
         ))
         .build()
         .await?;

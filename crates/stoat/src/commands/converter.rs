@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use async_trait::async_trait;
 use regex::Regex;
-use stoat_models::v0::{Channel, Member, Role, User};
+use stoat_models::v0::{Channel, Emoji, Member, Role, User};
 
 use crate::{Error, commands::Context};
 
@@ -14,6 +14,8 @@ static CHANNEL_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^<#([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})>$").unwrap());
 static ROLE_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^<%([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})>$").unwrap());
+static EMOJI_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^:([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26}):$").unwrap());
 
 #[async_trait]
 pub trait Converter<E: From<Error>, S: Send + Sync>: Sized {
@@ -43,6 +45,17 @@ impl<E: From<Error>, S: Send + Sync> Converter<E, S> for String {
 }
 
 #[async_trait]
+impl<E: From<Error>, S: Send + Sync> Converter<E, S> for bool {
+    async fn convert(_context: &Context<E, S>, input: String) -> Result<Self, E> {
+        match input.to_lowercase().as_str() {
+            "yes" | "y" | "true" | "t" | "1" | "enable" | "enabled" | "on" => Ok(true),
+            "no" | "n" | "false" | "f" | "0" | "disable" | "disabled" | "off" => Ok(false),
+            _ => Err(Error::ConverterError("Bad boolean value".to_string()).into()),
+        }
+    }
+}
+
+#[async_trait]
 impl<E: From<Error>, S: Send + Sync> Converter<E, S> for User {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
         if let Some(captures) = USER_REGEX
@@ -51,7 +64,7 @@ impl<E: From<Error>, S: Send + Sync> Converter<E, S> for User {
         {
             let id = captures.get(1).unwrap().as_str();
 
-            let user = context.cache.get_user(id).await;
+            let user = context.cache.get_user(id);
 
             if let Some(user) = user {
                 return Ok(user.clone());
@@ -73,7 +86,7 @@ impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Channel {
         {
             let id = captures.get(1).unwrap().as_str();
 
-            if let Some(channel) = context.cache.get_channel(id).await {
+            if let Some(channel) = context.cache.get_channel(id) {
                 return Ok(channel);
             }
         };
@@ -85,7 +98,7 @@ impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Channel {
 #[async_trait]
 impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Role {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
-        let Ok(server) = context.get_current_server().await else {
+        let Ok(server) = context.get_current_server() else {
             return Err(Error::ConverterError("Role not found".to_string()).into());
         };
 
@@ -107,10 +120,10 @@ impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Role {
 #[async_trait]
 impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Member {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
-        if let Ok(server) = context.get_current_server().await {
+        if let Ok(server) = context.get_current_server() {
             let user = <User as Converter<E, S>>::convert(context, input).await?;
 
-            if let Some(member) = context.cache.get_member(&server.id, &user.id).await {
+            if let Some(member) = context.cache.get_member(&server.id, &user.id) {
                 return Ok(member);
             } else if let Ok(member) = context.http.fetch_member(&server.id, &user.id).await {
                 return Ok(member);
@@ -118,6 +131,33 @@ impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Member {
         };
 
         Err(Error::ConverterError("Member not found".to_string()).into())
+    }
+}
+
+#[async_trait]
+impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Emoji {
+    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
+        if let Some(captures) = EMOJI_REGEX
+            .captures(&input)
+            .or_else(|| ID_REGEX.captures(&input))
+        {
+            let id = captures.get(1).unwrap().as_str();
+
+            if let Some(emoji) = context.cache.get_emoji(id) {
+                return Ok(emoji);
+            }
+        } else {
+            if let Some(emoji) = context
+                .cache
+                .emojis
+                .iter()
+                .find(|emoji| &emoji.name == &input)
+            {
+                return Ok(emoji.value().clone());
+            }
+        };
+
+        Err(Error::ConverterError("Emoji not found".to_string()).into())
     }
 }
 
@@ -142,6 +182,61 @@ pub struct Rest(pub Vec<String>);
 impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Rest {
     async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
         Ok(Self(context.words.rest()))
+    }
+
+    async fn convert(_context: &Context<E, S>, _input: String) -> Result<Self, E> {
+        unreachable!()
+    }
+}
+
+#[cfg(feature = "either")]
+#[async_trait]
+impl<E: From<Error>, S: Send + Sync, L: Converter<E, S>, R: Converter<E, S>> Converter<E, S>
+    for either::Either<L, R>
+{
+    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
+        if let Ok(left) = L::convert(context, input.clone()).await {
+            Ok(either::Either::Left(left))
+        } else {
+            R::convert(context, input).await.map(either::Either::Right)
+        }
+    }
+}
+
+#[async_trait]
+impl<E: From<Error>, S: Send + Sync, T: Converter<E, S>> Converter<E, S> for Option<T> {
+    async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
+        let Some(input) = context.words.next() else {
+            return Ok(None);
+        };
+
+        Ok(T::convert(context, input).await.ok())
+    }
+
+    async fn convert(_context: &Context<E, S>, _input: String) -> Result<Self, E> {
+        unreachable!()
+    }
+}
+
+pub struct Greedy<T>(pub Vec<T>);
+
+#[async_trait]
+impl<E: From<Error>, S: Send + Sync, T: Converter<E, S> + Send + Sync> Converter<E, S>
+    for Greedy<T>
+{
+    async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
+        let mut converted = Vec::new();
+
+        while let Some(arg) = context.words.next() {
+            if let Ok(value) = T::convert(context, arg).await {
+                converted.push(value);
+            } else {
+                context.words.undo();
+                break;
+            }
+        }
+
+        Ok(Self(converted))
     }
 
     async fn convert(_context: &Context<E, S>, _input: String) -> Result<Self, E> {

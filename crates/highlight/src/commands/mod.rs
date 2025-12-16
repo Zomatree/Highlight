@@ -10,7 +10,6 @@ use crate::{Error, State, utils::MessageExt};
 mod help;
 mod highlight;
 mod info;
-mod play;
 
 #[derive(Clone)]
 pub struct CommandEvents;
@@ -35,8 +34,7 @@ impl CommandEventHandler for CommandEvents {
     async fn error(&self, ctx: Context<Error, State>, error: Error) -> Result<(), Error> {
         match error {
             Error::StoatError(stoat::Error::NotInServer) => {
-                ctx.get_current_channel()
-                    .await?
+                ctx.get_current_channel()?
                     .send(&ctx.http)
                     .content("This command can only be used in a server".to_string())
                     .build()
@@ -49,36 +47,11 @@ impl CommandEventHandler for CommandEvents {
     }
 }
 
-async fn test(ctx: Context<Error, State>) -> Result<(), Error> {
-    let msg = ctx
-        .notifiers
-        .wait_for_message(
-            {
-                let author = ctx.message.author.clone();
-                let channel = ctx.message.channel.clone();
-
-                move |msg| msg.author == author && msg.channel == channel
-            },
-            None,
-        )
-        .await?;
-
-    ctx.get_current_channel()
-        .await?
-        .send(&ctx.http)
-        .content(msg.content.unwrap())
-        .build()
-        .await?;
-
-    Ok(())
-}
 
 pub fn commands() -> Vec<Command<Error, State>> {
     vec![
-        Command::new("test", test).description("Test command."),
         help::command(),
         highlight::command(),
         info::command(),
-        // play::command(),
     ]
 }

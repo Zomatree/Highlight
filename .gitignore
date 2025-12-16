@@ -1,3 +1,4 @@
 /target
 Highlight.toml
 .vscode
+**/*.DS_Store

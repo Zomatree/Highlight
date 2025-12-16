@@ -21,7 +21,7 @@ impl EventHandler for Events {
     async fn ready(&self, context: Context) -> Result<(), Self::Error> {
         println!(
             "Logged into {}",
-            context.cache.get_current_user().await.unwrap().username
+            context.cache.get_current_user().unwrap().username
         );
 
         Ok(())
@@ -30,7 +30,7 @@ impl EventHandler for Events {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let client = Client::new(Events, "https://stoat.chat/api").await;
+    let client = Client::new(Events).await?;
 
     client.run("TOKEN HERE").await
 }

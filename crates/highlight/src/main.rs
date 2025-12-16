@@ -7,7 +7,7 @@ mod utils;
 pub use utils::*;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Error> {
     pretty_env_logger::init();
 
     let state = State::new().await;
@@ -26,7 +26,7 @@ async fn main() {
         state: state.clone(),
     };
 
-    let client = Client::new(events, &state.config.stoat.api).await;
+    let client = Client::new_with_api_url(events, &state.config.stoat.api).await?;
 
-    client.run(&state.config.bot.token).await.unwrap();
+    client.run(&state.config.bot.token).await
 }

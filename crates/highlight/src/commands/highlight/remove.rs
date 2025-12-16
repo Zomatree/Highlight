@@ -11,7 +11,7 @@ async fn remove(
     ctx: Context<Error, State>,
     ConsumeRest(keyword): ConsumeRest,
 ) -> Result<(), Error> {
-    let server_id = ctx.get_current_server().await?.id;
+    let server_id = ctx.get_current_server()?.id;
 
     let removed = ctx
         .state
@@ -19,15 +19,13 @@ async fn remove(
         .await?;
 
     if removed {
-        ctx.get_current_channel()
-            .await?
+        ctx.get_current_channel()?
             .send(&ctx.http)
             .content("Removed from your highlights.".to_string())
             .build()
             .await?
     } else {
-        ctx.get_current_channel()
-            .await?
+        ctx.get_current_channel()?
             .send(&ctx.http)
             .content("Keyword doesnt exist.".to_string())
             .build()

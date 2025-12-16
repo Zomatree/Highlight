@@ -11,14 +11,14 @@ pub struct MessagesWithUsers {
     pub members: Vec<Member>,
 }
 
-pub struct FetchMessagesBuilder<'a> {
-    http: &'a HttpClient,
-    channel_id: &'a str,
+pub struct FetchMessagesBuilder {
+    http: HttpClient,
+    channel_id: String,
     data: OptionsQueryMessages,
 }
 
-impl<'a> FetchMessagesBuilder<'a> {
-    pub fn new(http: &'a HttpClient, channel_id: &'a str) -> Self {
+impl FetchMessagesBuilder {
+    pub fn new(http: HttpClient, channel_id: String) -> Self {
         Self {
             http,
             channel_id,
@@ -66,7 +66,7 @@ impl<'a> FetchMessagesBuilder<'a> {
     pub async fn build_raw(mut self, with_users: bool) -> Result<BulkMessageResponse, Error> {
         self.data.include_users = Some(with_users);
 
-        self.http.fetch_messages(self.channel_id, &self.data).await
+        self.http.fetch_messages(&self.channel_id, &self.data).await
     }
 
     pub async fn build_with_users(self) -> Result<MessagesWithUsers, Error> {

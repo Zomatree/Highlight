@@ -1,18 +1,17 @@
 use std::sync::Arc;
 
-use serde::Deserialize;
 use stoat_permissions::ChannelPermission;
+pub use stoat_result::Error as StoatHttpError;
 
-#[derive(Deserialize, Debug, Clone)]
-pub struct HttpError {
-    pub r#type: String,
-    pub location: String,
-}
+use crate::types::RatelimitFailure;
+
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, Clone)]
 pub enum Error {
     ReqwestError(Arc<reqwest::Error>),
-    HttpError(HttpError),
+    HttpError(StoatHttpError),
+    RatelimitReached(RatelimitFailure),
     WsError(Arc<tungstenite::Error>),
     #[cfg(feature = "voice")]
     LiveKit(Arc<livekit::RoomError>),
@@ -27,6 +26,8 @@ pub enum Error {
     },
     NotInServer,
     NotInDM,
+    NotOwner,
+    NotNsfw,
 
     NotAudioTrack,
     NotVideoTrack,

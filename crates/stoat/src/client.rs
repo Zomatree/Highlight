@@ -26,24 +26,30 @@ pub struct Client<H> {
 }
 
 impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
-    pub async fn new(handler: H, base_url: impl Into<String>) -> Self {
-        let http = HttpClient::new(base_url.into(), None);
+    pub async fn new(handler: H) -> Result<Self, H::Error> {
+        Self::new_with_api_url(handler, "https://api.stoat.chat").await
+    }
 
-        let api_config = http.get_root().await.unwrap();
+    pub async fn new_with_api_url(
+        handler: H,
+        base_url: impl Into<String>,
+    ) -> Result<Self, H::Error> {
+        let http = HttpClient::new(base_url.into(), None, None).await?;
 
-        Self {
-            state: GlobalCache::new(api_config),
+        Ok(Self {
+            state: GlobalCache::new((*http.api_config).clone()),
             handler: Arc::new(handler),
             http,
             waiters: Notifiers::default(),
             events: None,
-        }
+        })
     }
 
     pub async fn run(mut self, token: impl Into<String>) -> Result<(), H::Error> {
         let token = token.into();
 
         self.http.token = Some(token.clone());
+        self.http.user_id = Some(self.http.fetch_self().await?.id);
 
         let (client_sender, client_receiver) = mpsc::unbounded_channel();
         self.events = Some(Arc::new(client_sender));

@@ -37,14 +37,14 @@ impl EventHandler for Events {
             return Ok(());
         };
 
-        let channel = ctx.cache.get_channel(&message.channel).await.unwrap();
+        let channel = ctx.cache.get_channel(&message.channel).unwrap();
 
         let server_id = match &channel {
             Channel::TextChannel { server, .. } => server.clone(),
             _ => return Ok(()),
         };
 
-        let server = ctx.cache.get_server(&server_id).await.unwrap();
+        let server = ctx.cache.get_server(&server_id).unwrap();
 
         let regexes = self.state.get_keywords(server_id.clone()).await?;
         let known_not_in_server = self
@@ -62,10 +62,10 @@ impl EventHandler for Events {
             };
 
             let permissions = {
-                let user = if let Some(user) = ctx.cache.get_user(&user_id).await {
+                let user = if let Some(user) = ctx.cache.get_user(&user_id) {
                     user
                 } else if let Ok(user) = ctx.http.fetch_user(&user_id).await {
-                    ctx.cache.insert_user(user.clone()).await;
+                    ctx.cache.insert_user(user.clone());
 
                     user
                 } else {
@@ -80,11 +80,10 @@ impl EventHandler for Events {
                     continue;
                 };
 
-                let member = if let Some(member) = ctx.cache.get_member(&server_id, &user_id).await
-                {
+                let member = if let Some(member) = ctx.cache.get_member(&server_id, &user_id) {
                     member.clone()
                 } else if let Ok(member) = ctx.http.fetch_member(&server_id, &user_id).await {
-                    ctx.cache.insert_member(member.clone()).await;
+                    ctx.cache.insert_member(member.clone());
 
                     member
                 } else {
@@ -101,7 +100,6 @@ impl EventHandler for Events {
 
                 let mut query =
                     user_permissions_query(ctx.cache.clone(), ctx.http.clone(), Cow::Owned(user))
-                        .await
                         .channel(Cow::Borrowed(&channel))
                         .server(Cow::Borrowed(&server))
                         .member(Cow::Borrowed(&member));
@@ -122,11 +120,10 @@ impl EventHandler for Events {
                 let content = content.clone();
                 let message_author = message.author.clone();
 
-                let server_name = ctx.cache.get_server(&server_id).await.unwrap().name;
+                let server_name = ctx.cache.get_server(&server_id).unwrap().name;
                 let channel_name = ctx
                     .cache
                     .get_channel(&channel_id)
-                    .await
                     .unwrap()
                     .name()
                     .unwrap()
@@ -181,12 +178,13 @@ impl EventHandler for Events {
                             return;
                         };
 
-                        let mut messages = FetchMessagesBuilder::new(&http, &channel_id)
-                            .limit(5)
-                            .nearby(message_id.clone())
-                            .build_with_users()
-                            .await
-                            .unwrap();
+                        let mut messages =
+                            FetchMessagesBuilder::new(http.clone(), channel_id.clone())
+                                .limit(5)
+                                .nearby(message_id.clone())
+                                .build_with_users()
+                                .await
+                                .unwrap();
 
                         messages.messages.sort_by(|a, b| a.id.cmp(&b.id));
 
@@ -235,7 +233,7 @@ impl EventHandler for Events {
 
                         let dm_channel = http.open_dm(&user_id).await.unwrap();
 
-                        SendMessageBuilder::new(&http, dm_channel.id())
+                        SendMessageBuilder::new(http.clone(), dm_channel.id().to_string())
                             .content(format!("In [{server_name} › {channel_name}]({jump_link}), you where mentioned with **{keyword}**"))
                             .embed(SendableEmbed {
                                 title: Some(keyword.to_string()),
@@ -253,11 +251,7 @@ impl EventHandler for Events {
         Ok(())
     }
 
-    async fn server_member_join(
-        &self,
-        ctx: Context,
-        member: Member,
-    ) -> Result<(), Error> {
+    async fn server_member_join(&self, _ctx: Context, member: Member) -> Result<(), Error> {
         if let Some(set) = self
             .state
             .known_not_in_server
@@ -273,9 +267,9 @@ impl EventHandler for Events {
 
     async fn server_member_leave(
         &self,
-        ctx: Context,
+        _ctx: Context,
         member: Member,
-        reason: RemovalIntention,
+        _reason: RemovalIntention,
     ) -> Result<(), Error> {
         if let Some(set) = self
             .state
@@ -290,7 +284,7 @@ impl EventHandler for Events {
         Ok(())
     }
 
-    async fn ready(&self, ctx: Context) -> Result<(), Error> {
+    async fn ready(&self, _ctx: Context) -> Result<(), Error> {
         log::info!("Ready!");
 
         Ok(())

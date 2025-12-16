@@ -34,7 +34,7 @@ impl EventHandler for Events {
     async fn ready(&self, context: Context) -> Result<(), Self::Error> {
         println!(
             "Logged into {}",
-            context.cache.get_current_user().await.unwrap().username
+            context.cache.get_current_user().unwrap().username
         );
 
         Ok(())
@@ -48,8 +48,7 @@ impl EventHandler for Events {
 type CmdCtx = CommandContext<Error, ()>;
 
 async fn ping(ctx: CmdCtx) -> Result<(), Error> {
-    ctx.get_current_channel()
-        .await?
+    ctx.get_current_channel()?
         .send(&ctx.http)
         .content("Pong!".to_string())
         .reply(ctx.message.id.clone(), true)
@@ -67,7 +66,7 @@ async fn main() -> Result<(), Error> {
 
     let events = Events(commands);
 
-    let client = Client::new(events, "https://stoat.chat/api").await;
+    let client = Client::new(events).await?;
 
     client.run("TOKEN HERE").await
 }

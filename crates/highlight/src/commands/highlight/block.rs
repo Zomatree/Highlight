@@ -13,8 +13,7 @@ async fn block(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
         .block_user(ctx.message.author.clone(), user.id.clone())
         .await?;
 
-    ctx.get_current_channel()
-        .await?
+    ctx.get_current_channel()?
         .send(&ctx.http)
         .content(format!("Blocked {}", user.username))
         .build()

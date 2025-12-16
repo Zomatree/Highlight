@@ -13,8 +13,7 @@ async fn unblock(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
         .unblock_user(ctx.message.author.clone(), user.id.clone())
         .await?;
 
-    ctx.get_current_channel()
-        .await?
+    ctx.get_current_channel()?
         .send(&ctx.http)
         .content(format!("Unblocked {}", user.username))
         .build()

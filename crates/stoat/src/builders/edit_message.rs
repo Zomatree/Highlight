@@ -2,15 +2,15 @@ use stoat_models::v0::{DataEditMessage, Message, SendableEmbed};
 
 use crate::{HttpClient, error::Error};
 
-pub struct EditMessageBuilder<'a> {
-    http: &'a HttpClient,
-    channel_id: &'a str,
-    message_id: &'a str,
+pub struct EditMessageBuilder {
+    http: HttpClient,
+    channel_id: String,
+    message_id: String,
     data: DataEditMessage,
 }
 
-impl<'a> EditMessageBuilder<'a> {
-    pub fn new(http: &'a HttpClient, channel_id: &'a str, message_id: &'a str) -> Self {
+impl EditMessageBuilder {
+    pub fn new(http: HttpClient, channel_id: String, message_id: String) -> Self {
         Self {
             http,
             channel_id,
@@ -36,7 +36,7 @@ impl<'a> EditMessageBuilder<'a> {
 
     pub async fn build(&self) -> Result<Message, Error> {
         self.http
-            .edit_message(self.channel_id, self.message_id, &self.data)
+            .edit_message(&self.channel_id, &self.message_id, &self.data)
             .await
     }
 }

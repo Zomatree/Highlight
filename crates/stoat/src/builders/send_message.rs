@@ -4,14 +4,14 @@ use stoat_models::v0::{
 
 use crate::{HttpClient, error::Error};
 
-pub struct SendMessageBuilder<'a> {
-    http: &'a HttpClient,
-    channel_id: &'a str,
+pub struct SendMessageBuilder {
+    http: HttpClient,
+    channel_id: String,
     data: DataMessageSend,
 }
 
-impl<'a> SendMessageBuilder<'a> {
-    pub fn new(http: &'a HttpClient, channel_id: &'a str) -> Self {
+impl SendMessageBuilder {
+    pub fn new(http: HttpClient, channel_id: String) -> Self {
         Self {
             http,
             channel_id,

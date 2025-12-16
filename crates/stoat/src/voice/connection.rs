@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     panic::AssertUnwindSafe,
     sync::Arc,
     time::{Duration, Instant},
@@ -9,9 +8,8 @@ use crate::{AudioSink, AudioSource, Error, GlobalCache, VideoSource, VoiceEventH
 use futures::{FutureExt, StreamExt, future::try_join_all};
 use livekit::{
     Room, RoomEvent, RoomOptions,
-    id::ParticipantIdentity,
     options::TrackPublishOptions,
-    prelude::{RemoteParticipant, RemoteTrackPublication},
+    prelude::{LocalParticipant, Participant, RemoteParticipant, RemoteTrackPublication},
     track::{LocalAudioTrack, LocalTrack, LocalVideoTrack, RemoteTrack, TrackKind, TrackSource},
     webrtc::{
         audio_source::native::NativeAudioSource,
@@ -23,6 +21,7 @@ use livekit::{
         video_source::native::NativeVideoSource,
     },
 };
+use stoat_models::v0::{User, UserVoiceState};
 use tokio::{sync::mpsc::UnboundedReceiver, time::sleep};
 
 #[derive(Debug, Clone)]
@@ -45,7 +44,7 @@ impl VoiceConnection {
             room: Arc::new(room),
         };
 
-        cache.insert_voice_connection(this.clone()).await;
+        cache.insert_voice_connection(this.clone());
 
         Ok(this)
     }
@@ -56,6 +55,63 @@ impl VoiceConnection {
 
     pub fn channel_id(&self) -> String {
         self.room.name()
+    }
+
+    pub fn local_participant(&self) -> (User, UserVoiceState, LocalParticipant) {
+        let channel_voice_state = self
+            .cache
+            .get_voice_state(&self.channel_id())
+            .expect("no channel voice state");
+
+        let user = self.cache.get_current_user().expect("No local user");
+        let voice_state = channel_voice_state
+            .participants
+            .iter()
+            .find(|s| &s.id == &user.id)
+            .expect("No local voice state found");
+
+        (user, voice_state.clone(), self.room.local_participant())
+    }
+
+    pub fn remote_participants(&self) -> Vec<(User, UserVoiceState, RemoteParticipant)> {
+        let mut participants = Vec::new();
+        let channel_voice_state = self
+            .cache
+            .get_voice_state(&self.channel_id())
+            .expect("no channel voice state");
+
+        for remote in self.room.remote_participants().values() {
+            if let Some(user) = self.cache.get_user(&remote.identity().as_str())
+                && let Some(voice_state) = channel_voice_state
+                    .participants
+                    .iter()
+                    .find(|s| &s.id == &user.id)
+            {
+                participants.push((user, voice_state.clone(), remote.clone()));
+            };
+        }
+
+        participants
+    }
+
+    pub fn participants(&self) -> Vec<(User, UserVoiceState, Participant)> {
+        let mut participants = Vec::new();
+
+        let (local_user, local_voice_state, local_participant) = self.local_participant();
+
+        participants.push((
+            local_user,
+            local_voice_state,
+            Participant::Local(local_participant),
+        ));
+
+        participants.extend(self.remote_participants().into_iter().map(
+            |(user, voice_state, participant)| {
+                (user, voice_state, Participant::Remote(participant))
+            },
+        ));
+
+        participants
     }
 
     pub fn register<E: VoiceEventHandler + Send + Sync + 'static>(&self, events: E) {
@@ -273,18 +329,14 @@ impl VoiceConnection {
         Ok(())
     }
 
-    pub fn remote_participants(&self) -> HashMap<ParticipantIdentity, RemoteParticipant> {
-        self.room.remote_participants()
-    }
-
     pub fn inner(&self) -> Arc<Room> {
         self.room.clone()
     }
 
     pub async fn disconnect(&self) -> Result<(), Error> {
-        self.room.close().await?;
+        self.cache.remove_voice_connection(&self.channel_id());
 
-        self.cache.remove_voice_connection(&self.channel_id()).await;
+        self.room.close().await?;
 
         Ok(())
     }

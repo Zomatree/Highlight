@@ -22,16 +22,14 @@ async fn help(ctx: Context<Error, State>, Rest(args): Rest) -> Result<(), Error>
             .collect::<Vec<_>>()
             .join("\n");
 
-        ctx.get_current_channel()
-            .await?
+        ctx.get_current_channel()?
             .send(&ctx.http)
             .content(format!("All commands:\n{commands}"))
             .build()
             .await?;
     } else {
         let Some(command) = ctx.commands.get_command_from_slice(&args).await else {
-            ctx.get_current_channel()
-                .await?
+            ctx.get_current_channel()?
                 .send(&ctx.http)
                 .content(format!("Command not found!"))
                 .build()
@@ -55,8 +53,7 @@ async fn help(ctx: Context<Error, State>, Rest(args): Rest) -> Result<(), Error>
         };
 
         if command.children.is_empty() {
-            ctx.get_current_channel()
-                .await?
+            ctx.get_current_channel()?
                 .send(&ctx.http)
                 .content(format!(
                     "## {} {}\n{}{}",
@@ -81,8 +78,7 @@ async fn help(ctx: Context<Error, State>, Rest(args): Rest) -> Result<(), Error>
                 .collect::<Vec<_>>()
                 .join("\n");
 
-            ctx.get_current_channel()
-                .await?
+            ctx.get_current_channel()?
                 .send(&ctx.http)
                 .content(format!(
                     "## {} {}\n{}{}\n\n### Subcommands:\n{}",

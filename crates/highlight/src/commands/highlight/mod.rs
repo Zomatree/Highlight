@@ -14,7 +14,7 @@ mod unblock;
 mod view;
 
 async fn highlight(ctx: Context<Error, State>) -> Result<(), Error> {
-    let server_id = ctx.get_current_server().await?.id;
+    let server_id = ctx.get_current_server()?.id;
 
     let highlights = ctx
         .state
@@ -25,8 +25,7 @@ async fn highlight(ctx: Context<Error, State>) -> Result<(), Error> {
         .collect::<Vec<_>>()
         .join("\n");
 
-    ctx.get_current_channel()
-        .await?
+    ctx.get_current_channel()?
         .send(&ctx.http)
         .content(format!("Your highlights are:\n{highlights}"))
         .build()

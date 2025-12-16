@@ -12,6 +12,7 @@ default = ["voice"]
 stoat-models = { package = "revolt-models", git = "https://github.com/stoatchat/stoatchat", default-features = false, features = ["partials"] }
 stoat-database = { package = "revolt-database", git = "https://github.com/stoatchat/stoatchat", default-features = false, features = ["async-std-runtime"] }
 stoat-permissions = { package = "revolt-permissions", git = "https://github.com/stoatchat/stoatchat" }
+stoat-result = { package = "revolt-result", git = "https://github.com/stoatchat/stoatchat" }
 
 # HTTP
 tokio-tungstenite = { version = "0.27", features = ["native-tls"] }
@@ -33,6 +34,11 @@ regex = "1.11"
 rand = "0.8"
 state = "0.6.0"
 log = "0.4"
+dashmap = "6.1.0"
+bytes = "1.11.0"
+paste = "1.0.15"
+indexmap = "1.9.3"
+either = { version = "*", optional = true }
 
 # Voice
 livekit = { version = "0.7.25", features = ["native-tls"], optional = true }
