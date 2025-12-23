@@ -34,11 +34,11 @@ regex = "1.11"
 rand = "0.8"
 state = "0.6.0"
 log = "0.4"
-dashmap = "6.1.0"
 bytes = "1.11.0"
 paste = "1.0.15"
 indexmap = "1.9.3"
 either = { version = "*", optional = true }
+scc = "3.4.8"
 
 # Voice
 livekit = { version = "0.7.25", features = ["native-tls"], optional = true }

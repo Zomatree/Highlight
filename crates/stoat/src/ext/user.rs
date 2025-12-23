@@ -39,9 +39,9 @@ impl UserExt for User {
     fn voice(&self, cache: impl AsRef<GlobalCache>) -> Vec<(String, UserVoiceState)> {
         let mut states = Vec::new();
 
-        for server in cache.as_ref().servers.iter() {
+        cache.as_ref().servers.iter_sync(|_, server| {
             for channel in &server.channels {
-                if let Some(channel_voice_state) = cache.as_ref().voice_states.get(channel) {
+                if let Some(channel_voice_state) = cache.as_ref().voice_states.get_sync(channel) {
                     if let Some(user_voice_state) = channel_voice_state
                         .participants
                         .iter()
@@ -50,8 +50,10 @@ impl UserExt for User {
                         states.push((channel.clone(), user_voice_state.clone()));
                     }
                 }
-            }
-        }
+            };
+
+            true
+        });
 
         states
     }

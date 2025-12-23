@@ -150,10 +150,9 @@ impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Emoji {
             if let Some(emoji) = context
                 .cache
                 .emojis
-                .iter()
-                .find(|emoji| &emoji.name == &input)
+                .any_sync(|_, emoji| &emoji.name == &input)
             {
-                return Ok(emoji.value().clone());
+                return Ok(emoji.get().clone());
             }
         };
 

@@ -38,11 +38,11 @@ impl MemberExt for Member {
         let server_channels = cache
             .as_ref()
             .servers
-            .get(&self.id.server)
+            .get_sync(&self.id.server)
             .map(|s| s.channels.clone())?;
 
         for channel in server_channels {
-            if let Some(channel_voice_state) = cache.as_ref().voice_states.get(&channel) {
+            if let Some(channel_voice_state) = cache.as_ref().voice_states.get_sync(&channel) {
                 if let Some(user_voice_state) = channel_voice_state
                     .participants
                     .iter()

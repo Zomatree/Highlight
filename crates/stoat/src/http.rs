@@ -5,7 +5,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use dashmap::DashMap;
+use scc::HashMap;
 use reqwest::{Client, Method, Request, RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
 use stoat_models::v0::{
@@ -44,7 +44,7 @@ pub struct HttpClient {
     pub token: Option<String>,
     pub user_id: Option<String>,
     pub inner: Client,
-    pub ratelimits: Arc<DashMap<u64, RatelimitEntry>>,
+    pub ratelimits: Arc<HashMap<u64, RatelimitEntry>>,
 }
 
 impl AsRef<HttpClient> for HttpClient {
@@ -56,7 +56,7 @@ impl AsRef<HttpClient> for HttpClient {
 impl HttpClient {
     pub async fn new(base: String, token: Option<String>, user_id: Option<String>) -> Result<Self> {
         let client = Client::new();
-        let ratelimits = Arc::new(DashMap::new());
+        let ratelimits = Arc::new(HashMap::new());
 
         let api_config = HttpRequest {
             ratelimits: ratelimits.clone(),
@@ -620,7 +620,7 @@ impl HttpClient {
 }
 
 pub struct HttpRequest {
-    ratelimits: Arc<DashMap<u64, RatelimitEntry>>,
+    ratelimits: Arc<HashMap<u64, RatelimitEntry>>,
     service: Service,
     builder: RequestBuilder,
 }
@@ -718,7 +718,7 @@ impl HttpRequest {
 
         let key = key.finish();
 
-        if let Some(entry) = self.ratelimits.get(&key) {
+        if let Some(entry) = self.ratelimits.get_async(&key).await {
             if entry.remaining == 0 {
                 let duration = Duration::from_millis(entry.reset as u64);
 
@@ -753,7 +753,8 @@ impl HttpRequest {
             .unwrap();
 
         self.ratelimits
-            .insert(key, RatelimitEntry { remaining, reset });
+            .insert_async(key, RatelimitEntry { remaining, reset })
+            .await;
 
         if response.status().as_u16() == 429 {
             let failure = response.json().await?;

@@ -24,7 +24,7 @@ impl CommandEventHandler for CommandEvents {
             return Ok(());
         };
 
-        if command.parents.get(0).is_some_and(|p| p == "highlight") {
+        if command.name == "highlight" || command.parents.get(0).is_some_and(|p| p == "highlight") {
             ctx.message.delete_after(&ctx, Duration::from_secs(5));
         };
 
