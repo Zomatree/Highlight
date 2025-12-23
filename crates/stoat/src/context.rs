@@ -3,18 +3,33 @@ use std::sync::Arc;
 use stoat_database::events::server::ClientMessage;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::{Error, GlobalCache, HttpClient, notifiers::Notifiers};
+use crate::{
+    Error, GlobalCache, HttpClient,
+    notifiers::Notifiers,
+    websocket::{EventMessage, ProgramMessage},
+};
+
+#[derive(Debug, Clone)]
+pub struct Events(pub(crate) Arc<UnboundedSender<EventMessage>>);
+
+impl Events {
+    pub(crate) fn send_message(&self, message: EventMessage) -> Result<(), Error> {
+        self.0.send(message).map_err(|_| Error::BrokenChannel)
+    }
+
+    pub fn send_event(&self, event: ClientMessage) -> Result<(), Error> {
+        self.send_message(EventMessage::Client(event))
+    }
+
+    pub fn close(&self) -> Result<(), Error> {
+        self.send_message(EventMessage::Program(ProgramMessage::Close))
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Context {
     pub cache: GlobalCache,
     pub http: HttpClient,
     pub notifiers: Notifiers,
-    pub(crate) events: Arc<UnboundedSender<ClientMessage>>,
-}
-
-impl Context {
-    pub fn send_event(&self, event: ClientMessage) -> Result<(), Error> {
-        self.events.send(event).map_err(|_| Error::BrokenChannel)
-    }
+    pub events: Events,
 }

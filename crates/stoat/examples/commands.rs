@@ -66,7 +66,7 @@ async fn main() -> Result<(), Error> {
 
     let events = Events(commands);
 
-    let client = Client::new(events).await?;
-
-    client.run("TOKEN HERE").await
+    Client::new(events).await?
+        .run("TOKEN HERE")
+        .await
 }

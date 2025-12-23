@@ -1,15 +1,19 @@
 use std::{panic::AssertUnwindSafe, sync::Arc, time::Duration};
 
-use futures::{FutureExt, future::join};
-use stoat_database::events::{client::EventV1, server::ClientMessage};
-use tokio::sync::{
-    Mutex,
-    mpsc::{self, UnboundedReceiver, UnboundedSender},
+use futures::FutureExt;
+use stoat_database::events::client::EventV1;
+use tokio::{
+    select,
+    sync::{
+        Mutex,
+        mpsc::{self, UnboundedReceiver},
+    },
 };
 
 use crate::{
-    Context,
+    Context, Error,
     cache::GlobalCache,
+    context::Events,
     events::{EventHandler, update_state},
     http::HttpClient,
     notifiers::Notifiers,
@@ -22,7 +26,7 @@ pub struct Client<H> {
     pub handler: Arc<H>,
     pub http: HttpClient,
     pub waiters: Notifiers,
-    pub events: Option<Arc<UnboundedSender<ClientMessage>>>,
+    events: Option<Events>,
 }
 
 impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
@@ -45,18 +49,26 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
         })
     }
 
-    pub async fn run(mut self, token: impl Into<String>) -> Result<(), H::Error> {
+    pub async fn start(&mut self, token: impl Into<String>) -> Result<(), H::Error> {
         let token = token.into();
 
         self.http.token = Some(token.clone());
         self.http.user_id = Some(self.http.fetch_self().await?.id);
 
+        Ok(())
+    }
+
+    pub async fn run(&mut self, token: impl Into<String>) -> Result<(), H::Error> {
+        let token = token.into();
+
+        self.start(token.clone()).await?;
+
         let (client_sender, client_receiver) = mpsc::unbounded_channel();
-        self.events = Some(Arc::new(client_sender));
+        self.events = Some(Events(Arc::new(client_sender)));
 
         let (sender, receiver) = mpsc::unbounded_channel();
 
-        let handle = tokio::spawn({
+        let handle = {
             let sender = sender.clone();
             let state = self.state.clone();
             let token = token.clone();
@@ -73,6 +85,10 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
                     .await
                     {
                         log::error!("{e:?}");
+
+                        if let Error::Close = e {
+                            return Err(Error::Close.into());
+                        }
                     }
 
                     log::info!("Disconnected! Reconnecting in 10 seconds.");
@@ -83,12 +99,23 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
                 #[allow(unreachable_code)]
                 Ok(())
             }
-        });
+        };
 
-        join(handle, self.handle_events(receiver)).await.0.unwrap()
+        select! {
+            e = handle => e,
+            _ = self.handle_events(receiver) => {
+                Ok(())
+            }
+        }
     }
 
-    pub async fn handle_events(self, mut receiver: UnboundedReceiver<EventV1>) {
+    pub async fn cleanup(&mut self) {
+        self.state.cleanup().await;
+        self.waiters.clear_all_waiters().await;
+        self.events = None;
+    }
+
+    async fn handle_events(&self, mut receiver: UnboundedReceiver<EventV1>) {
         while let Some(event) = receiver.recv().await {
             let this = self.clone();
 

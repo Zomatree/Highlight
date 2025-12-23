@@ -30,7 +30,7 @@ impl EventHandler for Events {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let client = Client::new(Events).await?;
-
-    client.run("TOKEN HERE").await
+    Client::new(Events).await?
+        .run("TOKEN HERE")
+        .await
 }

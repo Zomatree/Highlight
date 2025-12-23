@@ -31,6 +31,8 @@ pub enum Error {
 
     NotAudioTrack,
     NotVideoTrack,
+
+    Close,
 }
 
 impl From<reqwest::Error> for Error {

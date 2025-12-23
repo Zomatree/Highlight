@@ -1,9 +1,7 @@
 use std::{collections::HashMap, time::SystemTime};
 
 use crate::{
-    GlobalCache, HttpClient, Identifiable, Result,
-    builders::{fetch_messages::FetchMessagesBuilder, send_message::SendMessageBuilder},
-    created_at,
+    GlobalCache, HttpClient, Identifiable, Result, builders::{fetch_messages::FetchMessagesBuilder, send_message::SendMessageBuilder}, context::Events, created_at, utils
 };
 use async_trait::async_trait;
 use stoat_models::v0::{
@@ -31,6 +29,8 @@ pub trait ChannelExt {
 
     fn supports_voice(&self) -> bool;
     fn mention(&self) -> String;
+
+    async fn with_typing<Fut: Future<Output = R> + Send, R>(&self, events: &Events, fut: Fut) -> R;
 
     fn send(&self, http: &HttpClient) -> SendMessageBuilder;
     async fn fetch_message(&self, http: &HttpClient, message_id: &str) -> Result<Message>;
@@ -188,6 +188,10 @@ impl ChannelExt for Channel {
 
     fn mention(&self) -> String {
         format!("<#{}>", self.id())
+    }
+
+    async fn with_typing<Fut: Future<Output = R> + Send, R>(&self, events: &Events, fut: Fut) -> R {
+        utils::with_typing(events, self.id().to_string(), fut).await
     }
 
     fn send(&self, http: &HttpClient) -> SendMessageBuilder {

@@ -47,6 +47,19 @@ impl GlobalCache {
         }
     }
 
+    pub async fn cleanup(&self) {
+        self.servers.clear();
+        self.users.clear();
+        self.members.clear();
+        self.channels.clear();
+        self.messages.write().unwrap().clear();
+        self.emojis.clear();
+        self.voice_states.clear();
+
+        #[cfg(feature = "voice")]
+        self.voice_connections.clear();
+    }
+
     pub fn get_server(&self, server_id: &str) -> Option<Server> {
         self.servers.get(server_id).map(|r| r.value().clone())
     }

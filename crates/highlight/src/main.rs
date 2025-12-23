@@ -26,7 +26,8 @@ async fn main() -> Result<(), Error> {
         state: state.clone(),
     };
 
-    let client = Client::new_with_api_url(events, &state.config.stoat.api).await?;
-
-    client.run(&state.config.bot.token).await
+    Client::new_with_api_url(events, &state.config.stoat.api)
+        .await?
+        .run(&state.config.bot.token)
+        .await
 }

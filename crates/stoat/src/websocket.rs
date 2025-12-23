@@ -16,6 +16,17 @@ use tokio_tungstenite::connect_async;
 
 use crate::{Error, cache::GlobalCache};
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum ProgramMessage {
+    Close,
+}
+
+#[derive(Debug)]
+pub(crate) enum EventMessage {
+    Client(ClientMessage),
+    Program(ProgramMessage),
+}
+
 macro_rules! send {
     ($ws: ident, $event: expr) => {
         $ws.lock()
@@ -27,9 +38,9 @@ macro_rules! send {
     };
 }
 
-pub async fn run(
+pub(crate) async fn run(
     events: UnboundedSender<EventV1>,
-    client_events: Arc<Mutex<UnboundedReceiver<ClientMessage>>>,
+    client_events: Arc<Mutex<UnboundedReceiver<EventMessage>>>,
     global_state: GlobalCache,
     token: String,
 ) -> Result<(), Error> {
@@ -105,7 +116,10 @@ pub async fn run(
 
         async move {
             while let Some(message) = client_events.lock().await.recv().await {
-                send!(ws_send, &message)?;
+                match message {
+                    EventMessage::Client(message) => send!(ws_send, &message)?,
+                    EventMessage::Program(ProgramMessage::Close) => return Err(Error::Close),
+                }
             }
 
             Ok::<_, Error>(())

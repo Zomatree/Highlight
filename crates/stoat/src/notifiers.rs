@@ -103,7 +103,17 @@ macro_rules! generate_notifiers {
                     pub async fn [<invoke_ $event _waiters>](&self, arg: &$event_arg) {
                         self.inner_invoke(&self.$event, arg).await
                     }
+
+                    pub async fn [<clear_ $event _waiters>](&self) {
+                        self.$event.lock().await.clear();
+                    }
                 )*
+
+                pub async fn clear_all_waiters(&self) {
+                    $(
+                        self.[<clear_ $event _waiters>]().await;
+                    )*
+                }
             }
         }
     }
