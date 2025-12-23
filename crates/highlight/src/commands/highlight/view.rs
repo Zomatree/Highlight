@@ -22,14 +22,14 @@ async fn view(ctx: Context<Error, State>, user: User) -> Result<(), Error> {
         .join("\n");
 
     ctx.get_current_channel()?
-        .send(&ctx.http)
+        .send(&ctx)
         .content(format!(
             "{}'s highlights are:\n{highlights}",
             &user.username
         ))
         .build()
         .await?
-        .delete_after(&ctx.http, Duration::from_secs(5));
+        .delete_after(&ctx, Duration::from_secs(5));
 
     Ok(())
 }

@@ -25,7 +25,7 @@ impl CommandEventHandler for CommandEvents {
         };
 
         if command.parents.get(0).is_some_and(|p| p == "highlight") {
-            ctx.message.delete_after(&ctx.http, Duration::from_secs(5));
+            ctx.message.delete_after(&ctx, Duration::from_secs(5));
         };
 
         Ok(())
@@ -35,7 +35,7 @@ impl CommandEventHandler for CommandEvents {
         match error {
             Error::StoatError(stoat::Error::NotInServer) => {
                 ctx.get_current_channel()?
-                    .send(&ctx.http)
+                    .send(&ctx)
                     .content("This command can only be used in a server".to_string())
                     .build()
                     .await?;

@@ -10,17 +10,17 @@ use stoat_models::v0::{Message, OptionsUnreact};
 
 #[async_trait]
 pub trait MessageExt {
-    fn reply(&self, http: &HttpClient, mention: bool) -> SendMessageBuilder;
-    fn edit(&self, http: &HttpClient) -> EditMessageBuilder;
-    async fn delete(&self, http: &HttpClient) -> Result<()>;
-    async fn clear_reactions(&mut self, http: &HttpClient) -> Result<()>;
-    async fn pin_message(&mut self, http: &HttpClient) -> Result<()>;
-    async fn unpin_message(&mut self, http: &HttpClient) -> Result<()>;
-    async fn react(&mut self, http: &HttpClient, emoji: &str) -> Result<()>;
-    async fn unreact(&mut self, http: &HttpClient, emoji: &str) -> Result<()>;
+    fn reply(&self, http: impl AsRef<HttpClient>, mention: bool) -> SendMessageBuilder;
+    fn edit(&self, http: impl AsRef<HttpClient>) -> EditMessageBuilder;
+    async fn delete(&self, http: impl AsRef<HttpClient> + Send) -> Result<()>;
+    async fn clear_reactions(&mut self, http: impl AsRef<HttpClient> + Send) -> Result<()>;
+    async fn pin_message(&mut self, http: impl AsRef<HttpClient> + Send) -> Result<()>;
+    async fn unpin_message(&mut self, http: impl AsRef<HttpClient> + Send) -> Result<()>;
+    async fn react(&mut self, http: impl AsRef<HttpClient> + Send, emoji: &str) -> Result<()>;
+    async fn unreact(&mut self, http: impl AsRef<HttpClient> + Send, emoji: &str) -> Result<()>;
     async fn remove_reaction(
         &mut self,
-        http: &HttpClient,
+        http: impl AsRef<HttpClient> + Send,
         emoji: &str,
         options: &OptionsUnreact,
     ) -> Result<()>;
@@ -28,46 +28,46 @@ pub trait MessageExt {
 
 #[async_trait]
 impl MessageExt for Message {
-    fn reply(&self, http: &HttpClient, mention: bool) -> SendMessageBuilder {
-        SendMessageBuilder::new(http.clone(), self.channel.clone()).reply(self.id.clone(), mention)
+    fn reply(&self, http: impl AsRef<HttpClient>, mention: bool) -> SendMessageBuilder {
+        SendMessageBuilder::new(http.as_ref().clone(), self.channel.clone()).reply(self.id.clone(), mention)
     }
 
-    fn edit(&self, http: &HttpClient) -> EditMessageBuilder {
-        EditMessageBuilder::new(http.clone(), self.channel.clone(), self.id.clone())
+    fn edit(&self, http: impl AsRef<HttpClient>) -> EditMessageBuilder {
+        EditMessageBuilder::new(http.as_ref().clone(), self.channel.clone(), self.id.clone())
     }
 
-    async fn delete(&self, http: &HttpClient) -> Result<()> {
-        http.delete_message(&self.channel, &self.id).await
+    async fn delete(&self, http: impl AsRef<HttpClient> + Send) -> Result<()> {
+        http.as_ref().delete_message(&self.channel, &self.id).await
     }
 
-    async fn clear_reactions(&mut self, http: &HttpClient) -> Result<()> {
-        http.clear_reactions(&self.channel, &self.id).await?;
+    async fn clear_reactions(&mut self, http: impl AsRef<HttpClient> + Send) -> Result<()> {
+        http.as_ref().clear_reactions(&self.channel, &self.id).await?;
 
         self.reactions.clear();
 
         Ok(())
     }
 
-    async fn pin_message(&mut self, http: &HttpClient) -> Result<()> {
-        http.pin_message(&self.channel, &self.id).await?;
+    async fn pin_message(&mut self, http: impl AsRef<HttpClient> + Send) -> Result<()> {
+        http.as_ref().pin_message(&self.channel, &self.id).await?;
 
         self.pinned = Some(true);
 
         Ok(())
     }
 
-    async fn unpin_message(&mut self, http: &HttpClient) -> Result<()> {
-        http.unpin_message(&self.channel, &self.id).await?;
+    async fn unpin_message(&mut self, http: impl AsRef<HttpClient> + Send) -> Result<()> {
+        http.as_ref().unpin_message(&self.channel, &self.id).await?;
 
         self.pinned = None;
 
         Ok(())
     }
 
-    async fn react(&mut self, http: &HttpClient, emoji: &str) -> Result<()> {
-        http.react_message(&self.channel, &self.id, emoji).await?;
+    async fn react(&mut self, http: impl AsRef<HttpClient> + Send, emoji: &str) -> Result<()> {
+        http.as_ref().react_message(&self.channel, &self.id, emoji).await?;
 
-        if let Some(user_id) = http.user_id.clone() {
+        if let Some(user_id) = http.as_ref().user_id.clone() {
             self.reactions
                 .entry(emoji.to_string())
                 .or_default()
@@ -77,8 +77,8 @@ impl MessageExt for Message {
         Ok(())
     }
 
-    async fn unreact(&mut self, http: &HttpClient, emoji: &str) -> Result<()> {
-        http.unreact_message(
+    async fn unreact(&mut self, http: impl AsRef<HttpClient> + Send, emoji: &str) -> Result<()> {
+        http.as_ref().unreact_message(
             &self.channel,
             &self.id,
             emoji,
@@ -89,7 +89,7 @@ impl MessageExt for Message {
         )
         .await?;
 
-        if let Some(user_id) = &http.user_id {
+        if let Some(user_id) = &http.as_ref().user_id {
             if let Some(users) = self.reactions.get_mut(emoji) {
                 users.remove(user_id);
             };
@@ -100,11 +100,11 @@ impl MessageExt for Message {
 
     async fn remove_reaction(
         &mut self,
-        http: &HttpClient,
+        http: impl AsRef<HttpClient> + Send,
         emoji: &str,
         options: &OptionsUnreact,
     ) -> Result<()> {
-        http.unreact_message(&self.channel, &self.id, emoji, options)
+        http.as_ref().unreact_message(&self.channel, &self.id, emoji, options)
             .await?;
 
         if options.remove_all == Some(true) {
@@ -113,7 +113,7 @@ impl MessageExt for Message {
             if let Some(users) = self.reactions.get_mut(emoji) {
                 users.remove(user_id);
             };
-        } else if let Some(user_id) = &http.user_id {
+        } else if let Some(user_id) = &http.as_ref().user_id {
             if let Some(users) = self.reactions.get_mut(emoji) {
                 users.remove(user_id);
             };

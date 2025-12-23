@@ -26,11 +26,11 @@ async fn highlight(ctx: Context<Error, State>) -> Result<(), Error> {
         .join("\n");
 
     ctx.get_current_channel()?
-        .send(&ctx.http)
+        .send(&ctx)
         .content(format!("Your highlights are:\n{highlights}"))
         .build()
         .await?
-        .delete_after(&ctx.http, Duration::from_secs(5));
+        .delete_after(&ctx, Duration::from_secs(5));
 
     Ok(())
 }

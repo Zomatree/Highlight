@@ -113,10 +113,17 @@ impl HttpClient {
         }
     }
 
-    pub fn format_file_url(&self, tag: &str, id: &str) -> String {
+    pub fn format_file_url(&self, tag: &str, id: &str, filename: Option<&str>) -> String {
         let autumn_url = &self.api_config.features.autumn.url;
 
-        format!("{autumn_url}/{}/{}", tag, id)
+        let mut url = format!("{autumn_url}/{}/{}", tag, id);
+
+        if let Some(filename) = filename {
+            url.push('/');
+            url.push_str(filename);
+        };
+
+        url
     }
 
     pub async fn get_root(&self) -> Result<StoatConfig> {
@@ -586,6 +593,24 @@ impl HttpClient {
 
     pub async fn fetch_default_avatar(&self, user_id: &str) -> Result<Bytes> {
         self.request(Method::GET, format!("/users/{user_id}/default_avatar"))
+            .execute()
+            .await?
+            .bytes()
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn fetch_image_preview(&self, tag: &str, id: &str) -> Result<Bytes> {
+        self.autumn_request(Method::GET, format!("{tag}/{id}"))
+            .execute()
+            .await?
+            .bytes()
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn fetch_image(&self, tag: &str, id: &str, filename: &str) -> Result<Bytes> {
+        self.autumn_request(Method::GET, format!("{tag}/{id}/{filename}"))
             .execute()
             .await?
             .bytes()

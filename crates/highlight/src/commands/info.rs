@@ -10,7 +10,7 @@ async fn info(ctx: Context<Error, State>) -> Result<(), Error> {
     let trigger_word_count = ctx.state.get_total_keyword_count().await?;
 
     ctx.get_current_channel()?
-        .send(&ctx.http)
+        .send(&ctx)
         .content(format!(
             "\
 # Highlight

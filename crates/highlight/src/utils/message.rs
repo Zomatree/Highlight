@@ -4,13 +4,13 @@ use stoat::{HttpClient, types::Message};
 use tokio::time::sleep;
 
 pub trait MessageExt {
-    fn delete_after(self, http: &HttpClient, duration: Duration) -> Self;
+    fn delete_after(self, http: impl AsRef<HttpClient> + Send, duration: Duration) -> Self;
 }
 
 impl MessageExt for &Message {
-    fn delete_after(self, http: &HttpClient, duration: Duration) -> Self {
+    fn delete_after(self, http: impl AsRef<HttpClient> + Send, duration: Duration) -> Self {
         tokio::spawn({
-            let http = http.clone();
+            let http = http.as_ref().clone();
             let id = self.id.clone();
             let channel = self.channel.clone();
 

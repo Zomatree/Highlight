@@ -23,14 +23,14 @@ async fn help(ctx: Context<Error, State>, Rest(args): Rest) -> Result<(), Error>
             .join("\n");
 
         ctx.get_current_channel()?
-            .send(&ctx.http)
+            .send(&ctx)
             .content(format!("All commands:\n{commands}"))
             .build()
             .await?;
     } else {
         let Some(command) = ctx.commands.get_command_from_slice(&args).await else {
             ctx.get_current_channel()?
-                .send(&ctx.http)
+                .send(&ctx)
                 .content(format!("Command not found!"))
                 .build()
                 .await?;
@@ -54,7 +54,7 @@ async fn help(ctx: Context<Error, State>, Rest(args): Rest) -> Result<(), Error>
 
         if command.children.is_empty() {
             ctx.get_current_channel()?
-                .send(&ctx.http)
+                .send(&ctx)
                 .content(format!(
                     "## {} {}\n{}{}",
                     command.name,
@@ -79,7 +79,7 @@ async fn help(ctx: Context<Error, State>, Rest(args): Rest) -> Result<(), Error>
                 .join("\n");
 
             ctx.get_current_channel()?
-                .send(&ctx.http)
+                .send(&ctx)
                 .content(format!(
                     "## {} {}\n{}{}\n\n### Subcommands:\n{}",
                     command.name,

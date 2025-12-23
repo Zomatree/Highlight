@@ -157,3 +157,9 @@ generate_notifiers! {
     emoji_create: Emoji,
     emoji_delete: Emoji,
 }
+
+impl AsRef<Notifiers> for Notifiers {
+    fn as_ref(&self) -> &Notifiers {
+        self
+    }
+}

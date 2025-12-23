@@ -150,3 +150,89 @@ impl AudioSource for FFmpegPCMAudio {
         let _ = self.child.kill().await;
     }
 }
+
+pub struct YoutubeDlpFFmpegPCMAudioOptions {
+    pub executable: String,
+    pub ffmpeg: String,
+}
+
+impl Default for YoutubeDlpFFmpegPCMAudioOptions {
+    fn default() -> Self {
+        Self {
+            executable: "yt-dlp".to_string(),
+            ffmpeg: "ffmpeg".to_string(),
+        }
+    }
+}
+
+pub struct YoutubeDlpFFmpegPCMAudio {
+    ytdlp: Child,
+    ffmpeg: Child,
+    stdout: ChildStdout,
+}
+
+impl YoutubeDlpFFmpegPCMAudio {
+    pub fn new(url: &str) -> Self {
+        Self::new_with_options(url, YoutubeDlpFFmpegPCMAudioOptions::default())
+    }
+
+    pub fn new_with_options(url: &str, options: YoutubeDlpFFmpegPCMAudioOptions) -> Self {
+        let mut ytdlp = Command::new(&options.executable)
+            .arg(url)
+            .arg("-f")
+            .arg("webm[abr>0]/bestaudio/best")
+            .arg("-o")
+            .arg("-")
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        let ytdlp_stdout: Stdio = ytdlp.stdout.take().unwrap().try_into().unwrap();
+
+        let mut ffmpeg = Command::new(&options.ffmpeg)
+            .arg("-i")
+            .arg("pipe:0")
+            .arg("-f")
+            .arg("s16le")
+            .arg("-acodec")
+            .arg("pcm_s16le")
+            .arg("-ar")
+            .arg("48000")
+            .arg("-ac")
+            .arg("2")
+            .arg("-vn")
+            .arg("-loglevel")
+            .arg("warning")
+            .arg("-blocksize")
+            .arg("8192")
+            .arg("pipe:1")
+            .stdin(ytdlp_stdout)
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        let stdout = ffmpeg.stdout.take().unwrap();
+
+        Self { ytdlp, ffmpeg, stdout }
+    }
+}
+
+#[async_trait]
+impl AudioSource for YoutubeDlpFFmpegPCMAudio {
+    async fn read(&mut self, buffer: &mut [i16]) -> bool {
+        for i in 0..self.frame_size() {
+            if let Ok(data) = self.stdout.read_i16_le().await {
+                buffer[i] = data
+            } else {
+                return true;
+            };
+        }
+
+        false
+    }
+
+    async fn close(mut self) {
+        let _ = self.ytdlp.kill().await;
+        let _ = self.ffmpeg.kill().await;
+    }
+}

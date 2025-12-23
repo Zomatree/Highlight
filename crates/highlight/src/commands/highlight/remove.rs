@@ -20,18 +20,18 @@ async fn remove(
 
     if removed {
         ctx.get_current_channel()?
-            .send(&ctx.http)
+            .send(&ctx)
             .content("Removed from your highlights.".to_string())
             .build()
             .await?
     } else {
         ctx.get_current_channel()?
-            .send(&ctx.http)
+            .send(&ctx)
             .content("Keyword doesnt exist.".to_string())
             .build()
             .await?
     }
-    .delete_after(&ctx.http, Duration::from_secs(5));
+    .delete_after(&ctx, Duration::from_secs(5));
 
     Ok(())
 }

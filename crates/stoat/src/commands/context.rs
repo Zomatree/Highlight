@@ -7,8 +7,10 @@ use stoat_permissions::{
 };
 
 use crate::{
-    Context as MessageContext, Error,
+    Context as MessageContext, Error, GlobalCache, HttpClient,
     commands::{Command, Words, handler::Commands},
+    context::Events,
+    notifiers::Notifiers,
     permissions::user_permissions_query,
 };
 
@@ -191,5 +193,29 @@ impl<E, S> Deref for Context<E, S> {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl<E, S> AsRef<GlobalCache> for Context<E, S> {
+    fn as_ref(&self) -> &GlobalCache {
+        &self.cache
+    }
+}
+
+impl<E, S> AsRef<HttpClient> for Context<E, S> {
+    fn as_ref(&self) -> &HttpClient {
+        &self.http
+    }
+}
+
+impl<E, S> AsRef<Notifiers> for Context<E, S> {
+    fn as_ref(&self) -> &Notifiers {
+        &self.notifiers
+    }
+}
+
+impl<E, S> AsRef<Events> for Context<E, S> {
+    fn as_ref(&self) -> &Events {
+        &self.events
     }
 }

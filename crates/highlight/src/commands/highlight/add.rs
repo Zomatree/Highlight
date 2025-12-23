@@ -17,14 +17,14 @@ async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> R
 
     if current_keywords.len() >= ctx.state.config.limits.max_keywords {
         ctx.get_current_channel()?
-            .send(&ctx.http)
+            .send(&ctx)
             .content(format!(
                 "Max keyword amount reached ({})",
                 ctx.state.config.limits.max_keywords
             ))
             .build()
             .await?
-            .delete_after(&ctx.http, Duration::from_secs(5));
+            .delete_after(&ctx, Duration::from_secs(5));
 
         return Ok(());
     };
@@ -36,19 +36,19 @@ async fn add(ctx: Context<Error, State>, ConsumeRest(keyword): ConsumeRest) -> R
     {
         Ok(_) => {
             ctx.get_current_channel()?
-                .send(&ctx.http)
+                .send(&ctx)
                 .content("Added to your highlights.".to_string())
                 .build()
                 .await?
-                .delete_after(&ctx.http, Duration::from_secs(5));
+                .delete_after(&ctx, Duration::from_secs(5));
         }
         Err(Error::PgError(e)) if e.as_database_error().unwrap().is_unique_violation() => {
             ctx.get_current_channel()?
-                .send(&ctx.http)
+                .send(&ctx)
                 .content("Keyword already exists.".to_string())
                 .build()
                 .await?
-                .delete_after(&ctx.http, Duration::from_secs(5));
+                .delete_after(&ctx, Duration::from_secs(5));
         }
         res => return res,
     };

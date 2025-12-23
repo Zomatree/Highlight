@@ -5,10 +5,10 @@ use std::{
 
 use dashmap::DashMap;
 use stoat_models::v0::{
-    Channel, ChannelVoiceState, Emoji, EmojiParent, Member, Message, Server, User, UserVoiceState,
+    Channel, ChannelVoiceState, Emoji, EmojiParent, Member, Message, Server, User, UserVoiceState
 };
 
-use crate::types::StoatConfig;
+use crate::types::{StoatConfig, VoiceNode};
 
 #[derive(Debug, Clone)]
 pub struct GlobalCache {
@@ -58,6 +58,14 @@ impl GlobalCache {
 
         #[cfg(feature = "voice")]
         self.voice_connections.clear();
+    }
+
+    pub fn autumn_url(&self) -> &str {
+        &self.api_config.features.autumn.url
+    }
+
+    pub fn livekit_nodes(&self) -> &[VoiceNode] {
+        &self.api_config.features.livekit.nodes
     }
 
     pub fn get_server(&self, server_id: &str) -> Option<Server> {
@@ -351,5 +359,11 @@ impl GlobalCache {
             .unwrap()
             .as_ref()
             .map(|v| v.clone())
+    }
+}
+
+impl AsRef<GlobalCache> for GlobalCache {
+    fn as_ref(&self) -> &GlobalCache {
+        self
     }
 }
