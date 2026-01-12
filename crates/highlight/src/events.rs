@@ -2,10 +2,10 @@ use std::{borrow::Cow, time::Duration};
 
 use stoat::{
     Context, EventHandler, async_trait,
-    builders::{fetch_messages::FetchMessagesBuilder, send_message::SendMessageBuilder},
+    builders::{FetchMessagesBuilder, SendMessageBuilder},
     commands::CommandHandler,
     permissions::{ChannelPermission, calculate_channel_permissions, user_permissions_query},
-    types::{Channel, Member, Message, RemovalIntention, SendableEmbed},
+    types::{Channel, DataEditUser, Member, Message, RemovalIntention, SendableEmbed, UserStatus},
 };
 
 use crate::{Error, State, commands::CommandEvents};
@@ -284,8 +284,26 @@ impl EventHandler for Events {
         Ok(())
     }
 
-    async fn ready(&self, _ctx: Context) -> Result<(), Error> {
+    async fn ready(&self, ctx: Context) -> Result<(), Error> {
         log::info!("Ready!");
+
+        ctx.http
+            .edit_user(
+                "@me",
+                &DataEditUser {
+                    status: Some(UserStatus {
+                        text: Some(format!("{}help", &self.state.config.bot.prefix)),
+                        presence: None,
+                    }),
+                    display_name: None,
+                    avatar: None,
+                    profile: None,
+                    badges: None,
+                    flags: None,
+                    remove: Vec::new(),
+                },
+            )
+            .await?;
 
         Ok(())
     }

@@ -87,7 +87,7 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
                         log::error!("{e:?}");
 
                         if let Error::Close = e {
-                            return Err(Error::Close.into());
+                            return Ok(())
                         }
                     }
 
@@ -95,18 +95,23 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
 
                     tokio::time::sleep(Duration::from_secs(10)).await;
                 }
+            }
+        };
 
-                #[allow(unreachable_code)]
+        let res = select! {
+            e = handle => e,
+            _ = tokio::signal::ctrl_c() => {
+                log::info!("Received ctrl+c. exiting.");
+                Ok(())
+            }
+            _ = self.handle_events(receiver) => {
                 Ok(())
             }
         };
 
-        select! {
-            e = handle => e,
-            _ = self.handle_events(receiver) => {
-                Ok(())
-            }
-        }
+        self.cleanup().await;
+
+        res
     }
 
     pub async fn cleanup(&mut self) {

@@ -53,3 +53,10 @@ impl From<livekit::RoomError> for Error {
         Self::LiveKit(Arc::new(value))
     }
 }
+
+#[cfg(feature = "voice")]
+impl From<livekit::webrtc::RtcError> for Error {
+    fn from(value: livekit::webrtc::RtcError) -> Self {
+        Self::LiveKit(Arc::new(livekit::RoomError::Rtc(value)))
+    }
+}

@@ -14,8 +14,7 @@ pub struct CommandHandler<H: CommandEventHandler + Clone + Send + Sync + 'static
     prefix: Arc<
         Box<
             dyn for<'a> Fn(
-                    &'a MessageContext,
-                    &'a Message,
+                    &'a Context<H::Error, H::State>,
                 ) -> BoxFuture<'a, Result<Vec<String>, H::Error>>
                 + Send
                 + Sync,
@@ -35,7 +34,7 @@ impl<
 {
     pub fn new(event_handler: H, state: S) -> Self {
         Self {
-            prefix: Arc::new(Box::new(|_, _| async move { Ok(vec![]) }.boxed())),
+            prefix: Arc::new(Box::new(|_| async move { Ok(vec![]) }.boxed())),
             commands: Commands::new(),
             checks: Vec::new(),
             event_handler,
@@ -46,7 +45,7 @@ impl<
     pub fn with_static_prefix(mut self, prefix: impl Into<String>) -> Self {
         let prefix = prefix.into();
 
-        self.prefix = Arc::new(Box::new(move |_, _| {
+        self.prefix = Arc::new(Box::new(move |_| {
             let prefix = prefix.clone();
             async { Ok(vec![prefix]) }.boxed()
         }));
@@ -55,7 +54,7 @@ impl<
     }
 
     pub fn with_static_prefixes(mut self, prefixes: Vec<String>) -> Self {
-        self.prefix = Arc::new(Box::new(move |_, _| {
+        self.prefix = Arc::new(Box::new(move |_| {
             let prefixes = prefixes.clone();
             async { Ok(prefixes) }.boxed()
         }));
@@ -65,12 +64,12 @@ impl<
 
     pub fn with_prefix<
         Fut: Future<Output = Result<Vec<String>, E>> + Send + Sync + 'static,
-        F: for<'a> Fn(&'a MessageContext, &'a Message) -> Fut + Send + Sync + 'static,
+        F: for<'a> Fn(&'a Context<H::Error, H::State>) -> Fut + Send + Sync + 'static,
     >(
         mut self,
         f: F,
     ) -> Self {
-        self.prefix = Arc::new(Box::new(move |a, b| f(a, b).boxed()));
+        self.prefix = Arc::new(Box::new(move |context| f(context).boxed()));
 
         self
     }
@@ -113,7 +112,18 @@ impl<
             return Ok(());
         };
 
-        let prefixes = (self.prefix)(&context, &message).await?;
+        let mut cmd_context = Context {
+            inner: context,
+            prefix: None,
+            command: None,
+            message: message.clone(),
+            state: self.state.clone(),
+            words: Words::new(message_content),
+            commands: self.commands.clone(),
+            local_state: Arc::new(<TypeMap![Send + Sync]>::new()),
+        };
+
+        let prefixes = (self.prefix)(&cmd_context).await?;
 
         let Some(prefix) = prefixes
             .into_iter()
@@ -126,25 +136,15 @@ impl<
 
         let rest = &message_content[prefix.len()..];
 
-        let words = Words::new(rest);
-
-        let cmd_context = Context {
-            inner: context,
-            prefix: prefix,
-            command: self.commands.find_command_from_words(None, &words).await,
-            message: message.clone(),
-            state: self.state.clone(),
-            words,
-            commands: self.commands.clone(),
-            local_state: Arc::new(<TypeMap![Send + Sync]>::new()),
-        };
+        cmd_context.words = Words::new(rest);
+        cmd_context.command = self.commands.find_command_from_words(None, &cmd_context.words).await;
+        cmd_context.prefix = Some(prefix);
 
         if cmd_context.command.is_none() {
             if let Err(e) = self.event_handler.no_command(cmd_context.clone()).await {
                 self.event_handler
                     .error(cmd_context.clone(), e)
-                    .await
-                    .unwrap();
+                    .await?;
             };
 
             return Ok(());
@@ -153,29 +153,25 @@ impl<
         if let Err(e) = self.event_handler.command(cmd_context.clone()).await {
             self.event_handler
                 .error(cmd_context.clone(), e)
-                .await
-                .unwrap();
+                .await?;
         };
 
         if let Some(command) = cmd_context.command.as_ref() {
             if let Err(e) = self.can_run(cmd_context.clone()).await {
                 self.event_handler
                     .error(cmd_context.clone(), e)
-                    .await
-                    .unwrap();
+                    .await?;
             } else {
                 if let Err(e) = command.handle.handle(cmd_context.clone()).await {
                     self.event_handler
                         .error(cmd_context.clone(), e)
-                        .await
-                        .unwrap();
+                        .await?;
                 };
 
                 if let Err(e) = self.event_handler.after_command(cmd_context.clone()).await {
                     self.event_handler
                         .error(cmd_context.clone(), e)
-                        .await
-                        .unwrap();
+                        .await?;
                 };
             }
         }

@@ -19,7 +19,7 @@ type SendSyncMap = TypeMap![Send + Sync];
 #[derive(Debug, Clone)]
 pub struct Context<E, S> {
     pub(crate) inner: MessageContext,
-    pub prefix: String,
+    pub prefix: Option<String>,
     pub command: Option<Command<E, S>>,
     pub message: Message,
     pub state: S,
@@ -71,7 +71,7 @@ impl<E, S> Context<E, S> {
                 if let Ok(Channel::TextChannel { server, .. }) = self.get_current_channel() {
                     self.cache.get_server(&server).ok_or(Error::InternalError)
                 } else {
-                    Err(Error::InternalError)
+                    Err(Error::NotInServer)
                 },
             )
         })
@@ -88,10 +88,8 @@ impl<E, S> Context<E, S> {
                     Ok(user.clone())
                 } else if let Some(user) = self.cache.get_user(&self.message.author) {
                     Ok(user.clone())
-                } else if let Ok(user) = self.http.fetch_user(&self.message.author).await {
-                    Ok(user)
                 } else {
-                    Err(Error::InternalError)
+                    self.http.fetch_user(&self.message.author).await
                 })
             }
         })
@@ -107,20 +105,21 @@ impl<E, S> Context<E, S> {
             async move {
                 CurrentMember(if let Some(member) = self.message.member.as_ref() {
                     Ok(member.clone())
-                } else if let Ok(server) = self.get_current_server() {
-                    if let Some(member) = self.cache.get_member(&server.id, &self.message.author) {
-                        Ok(member.clone())
-                    } else if let Ok(member) = self
-                        .http
-                        .fetch_member(&server.id, &self.message.author)
-                        .await
-                    {
-                        Ok(member)
-                    } else {
-                        Err(Error::InternalError)
-                    }
                 } else {
-                    Err(Error::InternalError)
+                    match self.get_current_server() {
+                        Ok(server) => {
+                            if let Some(member) =
+                                self.cache.get_member(&server.id, &self.message.author)
+                            {
+                                Ok(member.clone())
+                            } else {
+                                self.http
+                                    .fetch_member(&server.id, &self.message.author)
+                                    .await
+                            }
+                        }
+                        Err(e) => Err(e),
+                    }
                 })
             }
         })

@@ -1,14 +1,14 @@
 use std::{
     panic::AssertUnwindSafe,
     sync::Arc,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use crate::{AudioSink, AudioSource, Error, GlobalCache, VideoSource, VoiceEventHandler};
 use futures::{FutureExt, StreamExt, future::try_join_all};
 use livekit::{
     Room, RoomEvent, RoomOptions,
-    options::TrackPublishOptions,
+    options::{TrackPublishOptions},
     prelude::{LocalParticipant, Participant, RemoteParticipant, RemoteTrackPublication},
     track::{LocalAudioTrack, LocalTrack, LocalVideoTrack, RemoteTrack, TrackKind, TrackSource},
     webrtc::{
@@ -22,7 +22,7 @@ use livekit::{
     },
 };
 use stoat_models::v0::{User, UserVoiceState};
-use tokio::{sync::mpsc::UnboundedReceiver, time::sleep};
+use tokio::{sync::mpsc::UnboundedReceiver, time::{MissedTickBehavior, interval}};
 
 #[derive(Debug, Clone)]
 pub struct VoiceConnection {
@@ -183,13 +183,13 @@ impl VoiceConnection {
         loop {
             let finished = source.read(audio_frame.data.to_mut()).await;
 
-            native_source.capture_frame(&audio_frame).await.unwrap();
-
             if finished {
                 source.close().await;
 
                 break;
-            };
+            } else {
+                native_source.capture_frame(&audio_frame).await?;
+            }
         }
 
         Ok(())
@@ -221,27 +221,25 @@ impl VoiceConnection {
             timestamp_us: 0,
         };
 
-        loop {
-            let time = Instant::now();
-            let finished = source.read(video_frame.buffer.data_mut()).await;
+        let mut interval = source.fps().map(|fps| {
+            let mut interval = interval(Duration::from_secs_f32(1.0 / fps));
+            interval.set_missed_tick_behavior(MissedTickBehavior::Burst);
+            interval
+        });
 
-            native_source.capture_frame(&video_frame);
+        loop {
+            if let Some(interval) = &mut interval {
+                interval.tick().await;
+            };
+
+            let finished = source.read(video_frame.buffer.data_mut()).await;
 
             if finished {
                 source.close().await;
 
                 break;
-            };
-
-            let elapsed = time.elapsed();
-
-            if let Some(fps) = source.fps() {
-                sleep(
-                    Duration::from_secs_f32(1.0 / fps)
-                        .checked_sub(elapsed)
-                        .unwrap_or_default(),
-                )
-                .await;
+            } else {
+                native_source.capture_frame(&video_frame);
             };
         }
 
@@ -379,6 +377,7 @@ async fn wait_for_track_subscribe(
         } = event
         {
             if publication.sid() == remote_publication.sid() {
+                rx.close();
                 return Some(track);
             }
         }

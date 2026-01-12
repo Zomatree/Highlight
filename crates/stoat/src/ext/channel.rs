@@ -1,7 +1,7 @@
 use std::{collections::HashMap, time::SystemTime};
 
 use crate::{
-    GlobalCache, HttpClient, Identifiable, Result, builders::{fetch_messages::FetchMessagesBuilder, send_message::SendMessageBuilder}, context::Events, created_at, utils
+    GlobalCache, HttpClient, Identifiable, Result, builders::{FetchMessagesBuilder, SendMessageBuilder}, context::Events, created_at, utils
 };
 use async_trait::async_trait;
 use stoat_models::v0::{

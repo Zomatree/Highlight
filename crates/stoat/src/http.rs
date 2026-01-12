@@ -753,7 +753,7 @@ impl HttpRequest {
             .unwrap();
 
         self.ratelimits
-            .insert_async(key, RatelimitEntry { remaining, reset })
+            .upsert_async(key, RatelimitEntry { remaining, reset })
             .await;
 
         if response.status().as_u16() == 429 {

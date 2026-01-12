@@ -2,7 +2,7 @@ use std::time::SystemTime;
 
 use crate::{
     HttpClient, Identifiable, Result,
-    builders::{edit_message::EditMessageBuilder, send_message::SendMessageBuilder},
+    builders::{EditMessageBuilder, SendMessageBuilder},
     created_at,
 };
 use async_trait::async_trait;

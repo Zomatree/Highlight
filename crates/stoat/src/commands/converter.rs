@@ -28,14 +28,31 @@ pub trait Converter<E: From<Error>, S: Send + Sync>: Sized {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E>;
 }
 
-#[async_trait]
-impl<E: From<Error>, S: Send + Sync> Converter<E, S> for u32 {
-    async fn convert(_context: &Context<E, S>, input: String) -> Result<Self, E> {
-        input
-            .parse::<u32>()
-            .map_err(|e| Error::ConverterError(e.to_string()).into())
-    }
+macro_rules! impl_parse_converter {
+    ($ty:ty) => {
+        #[async_trait]
+        impl<E: From<Error>, S: Send + Sync> Converter<E, S> for $ty {
+            async fn convert(_context: &Context<E, S>, input: String) -> Result<Self, E> {
+                input
+                    .parse::<$ty>()
+                    .map_err(|e| Error::ConverterError(e.to_string()).into())
+            }
+        }
+    };
 }
+
+impl_parse_converter!(u8);
+impl_parse_converter!(u16);
+impl_parse_converter!(u32);
+impl_parse_converter!(u64);
+impl_parse_converter!(u128);
+impl_parse_converter!(i8);
+impl_parse_converter!(i16);
+impl_parse_converter!(i32);
+impl_parse_converter!(i64);
+impl_parse_converter!(i128);
+impl_parse_converter!(f32);
+impl_parse_converter!(f64);
 
 #[async_trait]
 impl<E: From<Error>, S: Send + Sync> Converter<E, S> for String {
@@ -175,18 +192,6 @@ impl<E: From<Error>, S: Send + Sync> Converter<E, S> for ConsumeRest {
     }
 }
 
-pub struct Rest(pub Vec<String>);
-
-#[async_trait]
-impl<E: From<Error>, S: Send + Sync> Converter<E, S> for Rest {
-    async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
-        Ok(Self(context.words.rest()))
-    }
-
-    async fn convert(_context: &Context<E, S>, _input: String) -> Result<Self, E> {
-        unreachable!()
-    }
-}
 
 #[cfg(feature = "either")]
 #[async_trait]
@@ -236,6 +241,25 @@ impl<E: From<Error>, S: Send + Sync, T: Converter<E, S> + Send + Sync> Converter
         }
 
         Ok(Self(converted))
+    }
+
+    async fn convert(_context: &Context<E, S>, _input: String) -> Result<Self, E> {
+        unreachable!()
+    }
+}
+
+#[async_trait]
+impl<E: From<Error>, S: Send + Sync, T: Converter<E, S> + Send + Sync> Converter<E, S>
+    for Vec<T>
+{
+    async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
+        let mut converted = Vec::new();
+
+        while let Some(arg) = context.words.next() {
+            converted.push(T::convert(context, arg).await?);
+        };
+
+        Ok(converted)
     }
 
     async fn convert(_context: &Context<E, S>, _input: String) -> Result<Self, E> {

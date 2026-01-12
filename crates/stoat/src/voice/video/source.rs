@@ -173,8 +173,6 @@ impl FFmpegYUVVideo {
             }
         };
 
-        println!("{metadata:?}");
-
         let mut command = Command::new(&options.executable);
 
         for arg in &options.before_options {

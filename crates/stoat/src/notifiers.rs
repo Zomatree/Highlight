@@ -31,63 +31,6 @@ macro_rules! generate_notifiers {
         }
 
         impl Notifiers {
-            async fn inner_wait<F: Fn(&M) -> bool + Send + Sync + 'static, M: Clone>(
-                &self,
-                waiters: &WaiterMap<M>,
-                check: F,
-                timeout: Option<Duration>,
-            ) -> Result<M, Error> {
-                let (sender, receiver) = oneshot::channel();
-
-                let random_value = random();
-
-                {
-                    let mut lock: futures::lock::MutexGuard<'_, HashMap<usize, Waiter<M>>> =
-                        waiters.lock().await;
-
-                    lock.insert(
-                        random_value,
-                        Waiter {
-                            check: Arc::new(Box::new(check)),
-                            oneshot: Arc::new(Mutex::new(Some(sender))),
-                        },
-                    );
-                }
-
-                let response = if let Some(timeout) = timeout {
-                    tokio::time::timeout(timeout, receiver)
-                        .await
-                        .map(|res| res.map_err(|_| Error::BrokenChannel))
-                        .map_err(|_| Error::Timeout)
-                } else {
-                    Ok(receiver.await.map_err(|_| Error::BrokenChannel))
-                };
-
-                {
-                    let mut lock = waiters.lock().await;
-
-                    lock.remove(&random_value);
-                }
-
-                response?
-            }
-
-            async fn inner_invoke<M: Clone + Debug>(&self, waiters: &WaiterMap<M>, value: &M) {
-                let lock = waiters.lock().await.clone();
-
-                for (id, waiter) in lock {
-                    if (waiter.check)(value) {
-                        if let Some(oneshot) = waiter.oneshot.lock().await.take() {
-                            if let Err(e) = oneshot.send(value.clone()) {
-                                log::error!("Notifier failed with payload {e:?}")
-                            }
-                        }
-
-                        waiters.lock().await.remove(&id);
-                    }
-                }
-            }
-
             paste! {
                 $(
                     pub async fn [<wait_for_ $event>]<
@@ -156,6 +99,64 @@ generate_notifiers! {
     user_voice_channel_leave: (String, UserVoiceState),
     emoji_create: Emoji,
     emoji_delete: Emoji,
+}
+
+impl Notifiers {
+    async fn inner_wait<F: Fn(&M) -> bool + Send + Sync + 'static, M: Clone>(
+        &self,
+        waiters: &WaiterMap<M>,
+        check: F,
+        timeout: Option<Duration>,
+    ) -> Result<M, Error> {
+        let (sender, receiver) = oneshot::channel();
+
+        let random_value = random();
+
+        {
+            let mut lock = waiters.lock().await;
+
+            lock.insert(
+                random_value,
+                Waiter {
+                    check: Arc::new(Box::new(check)),
+                    oneshot: Arc::new(Mutex::new(Some(sender))),
+                },
+            );
+        }
+
+        let response = if let Some(timeout) = timeout {
+            tokio::time::timeout(timeout, receiver)
+                .await
+                .map(|res| res.map_err(|_| Error::BrokenChannel))
+                .map_err(|_| Error::Timeout)
+        } else {
+            Ok(receiver.await.map_err(|_| Error::BrokenChannel))
+        };
+
+        {
+            let mut lock = waiters.lock().await;
+
+            lock.remove(&random_value);
+        }
+
+        response?
+    }
+
+    async fn inner_invoke<M: Clone + Debug>(&self, waiters: &WaiterMap<M>, value: &M) {
+        let lock = waiters.lock().await.clone();
+
+        for (id, waiter) in lock {
+            if (waiter.check)(value) {
+                if let Some(oneshot) = waiter.oneshot.lock().await.take() {
+                    if let Err(e) = oneshot.send(value.clone()) {
+                        log::error!("Notifier failed with payload {e:?}")
+                    }
+                }
+
+                waiters.lock().await.remove(&id);
+            }
+        }
+    }
 }
 
 impl AsRef<Notifiers> for Notifiers {

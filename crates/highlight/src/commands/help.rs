@@ -1,11 +1,11 @@
 use stoat::{
     ChannelExt,
-    commands::{Command, Context, Rest},
+    commands::{Command, Context},
 };
 
 use crate::{Error, State};
 
-async fn help(ctx: Context<Error, State>, Rest(args): Rest) -> Result<(), Error> {
+async fn help(ctx: Context<Error, State>, args: Vec<String>) -> Result<(), Error> {
     if args.is_empty() {
         let commands = ctx
             .commands

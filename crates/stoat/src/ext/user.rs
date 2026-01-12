@@ -7,7 +7,7 @@ use stoat_models::v0::{
 };
 
 use crate::{
-    GlobalCache, HttpClient, Identifiable, Result, builders::send_message::SendMessageBuilder,
+    GlobalCache, HttpClient, Identifiable, Result, builders::SendMessageBuilder,
     created_at,
 };
 

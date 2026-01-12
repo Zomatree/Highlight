@@ -1,5 +1,5 @@
 use stoat::{
-    ChannelExt, Client, Context, EventHandler, MessageExt, async_trait, commands::{Command, CommandEventHandler, CommandHandler, Context as CommandContext}, types::Message
+    Client, Context, EventHandler, MessageExt, async_trait, commands::{Command, CommandEventHandler, CommandHandler, Context as CommandContext}, types::Message
 };
 
 #[derive(Debug, Clone)]

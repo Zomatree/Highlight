@@ -12,6 +12,7 @@ mod block;
 mod remove;
 mod unblock;
 mod view;
+mod clear;
 
 async fn highlight(ctx: Context<Error, State>) -> Result<(), Error> {
     let server_id = ctx.get_current_server()?.id;
@@ -45,4 +46,5 @@ pub fn command() -> Command<Error, State> {
         .child(block::command())
         .child(unblock::command())
         .child(view::command())
+        .child(clear::command())
 }
