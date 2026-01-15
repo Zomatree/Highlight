@@ -41,7 +41,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: highlight
+          name: highlight.tar
           path: ${{ runner.temp }}/highlight.tar
 
   publish:
@@ -60,7 +60,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: highlight
+          name: highlight.tar
           path: ${{ runner.temp }}
 
       - name: Load image
@@ -69,4 +69,4 @@ jobs:
 
       - name: Push image
         run: |
-          docker image push ghcr.io/zomatree/highlight:latest
+          docker image push ghcr.io/zomatree/highlight -a
