@@ -634,7 +634,7 @@ pub async fn update_state<H: EventHandler + Clone + Send + Sync + 'static>(
             data,
             clear,
         } => {
-            if let Some(Some((before, after))) = context.cache.update_server_with(&id, |server| {
+            if let Some((before, after)) = context.cache.update_server_with(&id, |server| {
                 if let Some(role) = server.roles.get_mut(&role_id) {
                     let before = role.clone();
 
@@ -646,27 +646,58 @@ pub async fn update_state<H: EventHandler + Clone + Send + Sync + 'static>(
                         }
                     }
 
-                    Some((before, role.clone()))
+                    (Some(before), role.clone())
                 } else {
-                    None
+                    // Role was created not updated
+
+                    let role = Role {
+                        id: role_id.clone(),
+                        name: data.name.clone().expect("No role name"),
+                        permissions: data.permissions.clone().expect("No role name"),
+                        colour: data.colour.clone(),
+                        hoist: data.hoist.expect("No role hoist"),
+                        rank: data.rank.expect("No role rank"),
+                    };
+
+                    server.roles.insert(role_id.clone(), role.clone());
+
+                    (None, role)
                 }
             }) {
-                context
-                    .notifiers
-                    .invoke_server_role_update_waiters(&(
-                        id.clone(),
-                        before.clone(),
-                        after.clone(),
-                        data.clone(),
-                        clear.clone(),
-                    ))
-                    .await;
-                handle_event!(
-                    handler,
-                    context,
-                    server_role_update,
-                    (id, before, after, data, clear)
-                )
+                if let Some(before) = before {
+                    context
+                        .notifiers
+                        .invoke_server_role_update_waiters(&(
+                            id.clone(),
+                            before.clone(),
+                            after.clone(),
+                            data.clone(),
+                            clear.clone(),
+                        ))
+                        .await;
+
+                    handle_event!(
+                        handler,
+                        context,
+                        server_role_update,
+                        (id, before, after, data, clear)
+                    )
+                } else {
+                    context
+                        .notifiers
+                        .invoke_server_role_create_waiters(&(
+                            id.clone(),
+                            after.clone(),
+                        ))
+                        .await;
+
+                    handle_event!(
+                        handler,
+                        context,
+                        server_role_create,
+                        (id, after)
+                    )
+                }
             }
         }
         EventV1::ServerRoleDelete { id, role_id } => {
@@ -1064,6 +1095,14 @@ pub trait EventHandler: Sized {
         Ok(())
     }
 
+    async fn server_role_create(
+        &self,
+        context: Context,
+        server_id: String,
+        role: Role,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
     async fn server_role_update(
         &self,
         context: Context,

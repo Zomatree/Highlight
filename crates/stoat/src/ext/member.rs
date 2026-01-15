@@ -1,27 +1,50 @@
 use std::time::SystemTime;
 
 use async_trait::async_trait;
-use stoat_models::v0::{DataBanCreate, DataMemberEdit, Member, ServerBan, UserVoiceState};
+use stoat_models::v0::{DataBanCreate, DataMemberEdit, Member, Role, ServerBan, UserVoiceState};
 
 use crate::{GlobalCache, HttpClient, Identifiable, Result, created_at};
 
 #[async_trait]
 pub trait MemberExt {
-    async fn ban(&self, http: impl AsRef<HttpClient> + Send, reason: Option<String>) -> Result<ServerBan>;
-    async fn edit(&mut self, http: impl AsRef<HttpClient> + Send, data: &DataMemberEdit) -> Result<()>;
+    async fn ban(
+        &self,
+        http: impl AsRef<HttpClient> + Send,
+        reason: Option<String>,
+    ) -> Result<ServerBan>;
+    async fn edit(
+        &mut self,
+        http: impl AsRef<HttpClient> + Send,
+        data: &DataMemberEdit,
+    ) -> Result<()>;
     async fn kick(&self, http: impl AsRef<HttpClient> + Send) -> Result<()>;
+    async fn add_roles(
+        &mut self,
+        http: impl AsRef<HttpClient> + Send,
+        roles: Vec<Role>,
+    ) -> Result<()>;
     fn voice(&self, cache: impl AsRef<GlobalCache>) -> Option<(String, UserVoiceState)>;
 }
 
 #[async_trait]
 impl MemberExt for Member {
-    async fn ban(&self, http: impl AsRef<HttpClient> + Send, reason: Option<String>) -> Result<ServerBan> {
-        http.as_ref().ban_member(&self.id.server, &self.id.user, &DataBanCreate { reason })
+    async fn ban(
+        &self,
+        http: impl AsRef<HttpClient> + Send,
+        reason: Option<String>,
+    ) -> Result<ServerBan> {
+        http.as_ref()
+            .ban_member(&self.id.server, &self.id.user, &DataBanCreate { reason })
             .await
     }
 
-    async fn edit(&mut self, http: impl AsRef<HttpClient> + Send, data: &DataMemberEdit) -> Result<()> {
-        let member = http.as_ref()
+    async fn edit(
+        &mut self,
+        http: impl AsRef<HttpClient> + Send,
+        data: &DataMemberEdit,
+    ) -> Result<()> {
+        let member = http
+            .as_ref()
             .edit_member(&self.id.server, &self.id.user, data)
             .await?;
 
@@ -31,7 +54,35 @@ impl MemberExt for Member {
     }
 
     async fn kick(&self, http: impl AsRef<HttpClient> + Send) -> Result<()> {
-        http.as_ref().kick_member(&self.id.server, &self.id.user).await
+        http.as_ref()
+            .kick_member(&self.id.server, &self.id.user)
+            .await
+    }
+
+    async fn add_roles(
+        &mut self,
+        http: impl AsRef<HttpClient> + Send,
+        roles: Vec<Role>,
+    ) -> Result<()> {
+        let mut new_roles = self.roles.clone();
+        new_roles.extend(roles.into_iter().map(|r| r.id));
+
+        self.edit(
+            http,
+            &DataMemberEdit {
+                nickname: None,
+                avatar: None,
+                roles: Some(new_roles),
+                timeout: None,
+                can_publish: None,
+                can_receive: None,
+                voice_channel: None,
+                remove: Vec::new(),
+            },
+        )
+        .await?;
+
+        Ok(())
     }
 
     fn voice(&self, cache: impl AsRef<GlobalCache>) -> Option<(String, UserVoiceState)> {

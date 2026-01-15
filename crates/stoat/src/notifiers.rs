@@ -90,6 +90,7 @@ generate_notifiers! {
     server_member_join: Member,
     server_member_leave: (Member, RemovalIntention),
     server_member_update: (Member, Member, PartialMember, Vec<FieldsMember>),
+    server_role_create: (String, Role),
     server_role_update: (String, Role, Role, PartialRole, Vec<FieldsRole>),
     server_role_delete: (String, Role),
     server_role_ranks_update: (String, Vec<Role>, Vec<Role>),

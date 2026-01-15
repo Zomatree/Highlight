@@ -6,6 +6,7 @@ mod message;
 mod server;
 mod user;
 mod embed;
+mod role;
 
 pub use channel::ChannelExt;
 pub use file::FileExt;
@@ -15,3 +16,4 @@ pub use message::MessageExt;
 pub use server::ServerExt;
 pub use user::UserExt;
 pub use embed::EmbedExt;
+pub use role::RoleExt;

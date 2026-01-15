@@ -3,7 +3,7 @@ name: Docker Publish
 on:
   push:
     tags:
-      - "*"
+      - "v*"
 
 permissions:
   contents: read
@@ -20,13 +20,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/zomatree/highlight
+          tags: |
+            type=semver,pattern={{raw}}
+
       - name: Build image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: false
           platforms: linux/amd64
-          tags: ghcr.io/zomatree/highlight:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           outputs: type=docker,dest=${{ runner.temp }}/highlight.tar
 
       - name: Upload artifact

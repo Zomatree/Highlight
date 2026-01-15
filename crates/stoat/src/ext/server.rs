@@ -3,15 +3,19 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use stoat_models::v0::{
     BanListResult, Channel, DataCreateRole, DataCreateServerChannel, DataEditRoleRanks,
-    DataEditServer, DataSetServerRolePermission, Emoji, Invite, Member, Role, Server,
+    DataEditServer, Emoji, Invite, Member, Role, Server,
 };
-use stoat_permissions::{DataPermissionsValue, Override};
+use stoat_permissions::DataPermissionsValue;
 
 use crate::{HttpClient, Identifiable, Result, created_at};
 
 #[async_trait]
 pub trait ServerExt {
-    async fn fetch_member(&self, http: impl AsRef<HttpClient> + Send, user_id: &str) -> Result<Member>;
+    async fn fetch_member(
+        &self,
+        http: impl AsRef<HttpClient> + Send,
+        user_id: &str,
+    ) -> Result<Member>;
     async fn fetch_bans(&self, http: impl AsRef<HttpClient> + Send) -> Result<BanListResult>;
     async fn unban_member(&self, http: impl AsRef<HttpClient> + Send, user_id: &str) -> Result<()>;
     async fn create_channel(
@@ -21,23 +25,36 @@ pub trait ServerExt {
     ) -> Result<Channel>;
     async fn fetch_emojis(&self, http: impl AsRef<HttpClient> + Send) -> Result<Vec<Emoji>>;
     async fn fetch_invites(&self, http: impl AsRef<HttpClient> + Send) -> Result<Vec<Invite>>;
-    async fn set_default_permissions(&mut self, http: impl AsRef<HttpClient> + Send, permissions: u64) -> Result<()>;
-    async fn set_role_permissions(
+    async fn set_default_permissions(
         &mut self,
         http: impl AsRef<HttpClient> + Send,
-        role_id: &str,
-        allow: u64,
-        deny: u64,
+        permissions: u64,
     ) -> Result<()>;
-    async fn create_role(&mut self, http: impl AsRef<HttpClient> + Send, data: &DataCreateRole) -> Result<()>;
-    async fn reorder_roles(&mut self, http: impl AsRef<HttpClient> + Send, order: Vec<String>) -> Result<()>;
+    async fn create_role(
+        &mut self,
+        http: impl AsRef<HttpClient> + Send,
+        data: &DataCreateRole,
+    ) -> Result<Role>;
+    async fn reorder_roles(
+        &mut self,
+        http: impl AsRef<HttpClient> + Send,
+        order: Vec<Role>,
+    ) -> Result<()>;
     async fn fetch_role(&self, http: impl AsRef<HttpClient> + Send, role_id: &str) -> Result<Role>;
-    async fn edit_server(&mut self, http: impl AsRef<HttpClient> + Send, data: &DataEditServer) -> Result<()>;
+    async fn edit_server(
+        &mut self,
+        http: impl AsRef<HttpClient> + Send,
+        data: &DataEditServer,
+    ) -> Result<()>;
 }
 
 #[async_trait]
 impl ServerExt for Server {
-    async fn fetch_member(&self, http: impl AsRef<HttpClient> + Send, user_id: &str) -> Result<Member> {
+    async fn fetch_member(
+        &self,
+        http: impl AsRef<HttpClient> + Send,
+        user_id: &str,
+    ) -> Result<Member> {
         http.as_ref().fetch_member(&self.id, user_id).await
     }
 
@@ -69,8 +86,13 @@ impl ServerExt for Server {
         http.as_ref().fetch_invites(&self.id).await
     }
 
-    async fn set_default_permissions(&mut self, http: impl AsRef<HttpClient> + Send, permissions: u64) -> Result<()> {
-        let server = http.as_ref()
+    async fn set_default_permissions(
+        &mut self,
+        http: impl AsRef<HttpClient> + Send,
+        permissions: u64,
+    ) -> Result<()> {
+        let server = http
+            .as_ref()
             .set_default_server_permissions(&self.id, &DataPermissionsValue { permissions })
             .await?;
 
@@ -79,39 +101,31 @@ impl ServerExt for Server {
         Ok(())
     }
 
-    async fn set_role_permissions(
+    async fn create_role(
         &mut self,
         http: impl AsRef<HttpClient> + Send,
-        role_id: &str,
-        allow: u64,
-        deny: u64,
-    ) -> Result<()> {
-        let server = http.as_ref()
-            .set_role_server_permissions(
-                &self.id,
-                role_id,
-                &DataSetServerRolePermission {
-                    permissions: Override { allow, deny },
-                },
-            )
-            .await?;
-
-        *self = server;
-
-        Ok(())
-    }
-
-    async fn create_role(&mut self, http: impl AsRef<HttpClient> + Send, data: &DataCreateRole) -> Result<()> {
+        data: &DataCreateRole,
+    ) -> Result<Role> {
         let role = http.as_ref().create_role(&self.id, data).await?;
 
-        self.roles.insert(role.id, role.role);
+        self.roles.insert(role.id, role.role.clone());
 
-        Ok(())
+        Ok(role.role)
     }
 
-    async fn reorder_roles(&mut self, http: impl AsRef<HttpClient> + Send, order: Vec<String>) -> Result<()> {
-        let server = http.as_ref()
-            .edit_role_positions(&self.id, &DataEditRoleRanks { ranks: order })
+    async fn reorder_roles(
+        &mut self,
+        http: impl AsRef<HttpClient> + Send,
+        order: Vec<Role>,
+    ) -> Result<()> {
+        let server = http
+            .as_ref()
+            .edit_role_positions(
+                &self.id,
+                &DataEditRoleRanks {
+                    ranks: order.into_iter().map(|r| r.id).collect(),
+                },
+            )
             .await?;
 
         *self = server;
@@ -123,7 +137,11 @@ impl ServerExt for Server {
         http.as_ref().fetch_role(&self.id, role_id).await
     }
 
-    async fn edit_server(&mut self, http: impl AsRef<HttpClient> + Send, data: &DataEditServer) -> Result<()> {
+    async fn edit_server(
+        &mut self,
+        http: impl AsRef<HttpClient> + Send,
+        data: &DataEditServer,
+    ) -> Result<()> {
         let server = http.as_ref().edit_server(&self.id, data).await?;
 
         *self = server;
