@@ -2,12 +2,12 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use stoat_models::v0::{
-    BanListResult, Channel, DataCreateRole, DataCreateServerChannel, DataEditRoleRanks,
-    DataEditServer, Emoji, Invite, Member, Role, Server,
+    BanListResult, Channel, DataCreateRole, DataCreateServerChannel, DataEditRoleRanks, Emoji,
+    Invite, Member, Role, Server,
 };
 use stoat_permissions::DataPermissionsValue;
 
-use crate::{HttpClient, Identifiable, Result, created_at};
+use crate::{HttpClient, Identifiable, Result, builders::EditServerBuilder, created_at};
 
 #[async_trait]
 pub trait ServerExt {
@@ -33,7 +33,7 @@ pub trait ServerExt {
     async fn create_role(
         &mut self,
         http: impl AsRef<HttpClient> + Send,
-        data: &DataCreateRole,
+        name: String,
     ) -> Result<Role>;
     async fn reorder_roles(
         &mut self,
@@ -41,11 +41,7 @@ pub trait ServerExt {
         order: Vec<Role>,
     ) -> Result<()>;
     async fn fetch_role(&self, http: impl AsRef<HttpClient> + Send, role_id: &str) -> Result<Role>;
-    async fn edit_server(
-        &mut self,
-        http: impl AsRef<HttpClient> + Send,
-        data: &DataEditServer,
-    ) -> Result<()>;
+    async fn edit_server(&self, http: impl AsRef<HttpClient> + Send) -> EditServerBuilder;
 }
 
 #[async_trait]
@@ -104,9 +100,9 @@ impl ServerExt for Server {
     async fn create_role(
         &mut self,
         http: impl AsRef<HttpClient> + Send,
-        data: &DataCreateRole,
+        name: String,
     ) -> Result<Role> {
-        let role = http.as_ref().create_role(&self.id, data).await?;
+        let role = http.as_ref().create_role(&self.id, &DataCreateRole { name, rank: None }).await?;
 
         self.roles.insert(role.id, role.role.clone());
 
@@ -137,16 +133,8 @@ impl ServerExt for Server {
         http.as_ref().fetch_role(&self.id, role_id).await
     }
 
-    async fn edit_server(
-        &mut self,
-        http: impl AsRef<HttpClient> + Send,
-        data: &DataEditServer,
-    ) -> Result<()> {
-        let server = http.as_ref().edit_server(&self.id, data).await?;
-
-        *self = server;
-
-        Ok(())
+    async fn edit_server(&self, http: impl AsRef<HttpClient> + Send) -> EditServerBuilder {
+        EditServerBuilder::new(http.as_ref().clone(), self.id.clone())
     }
 }
 

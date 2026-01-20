@@ -3,7 +3,6 @@ use crate::{
     commands::{Check, Command, CommandEventHandler, Context, Words},
 };
 use async_recursion::async_recursion;
-use futures::{FutureExt, future::BoxFuture};
 use state::TypeMap;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use stoat_models::v0::Message;
@@ -11,15 +10,6 @@ use tokio::sync::RwLock;
 
 #[derive(Clone)]
 pub struct CommandHandler<H: CommandEventHandler + Clone + Send + Sync + 'static> {
-    prefix: Arc<
-        Box<
-            dyn for<'a> Fn(
-                    &'a Context<H::Error, H::State>,
-                ) -> BoxFuture<'a, Result<Vec<String>, H::Error>>
-                + Send
-                + Sync,
-        >,
-    >,
     commands: Commands<H::Error, H::State>,
     checks: Vec<Arc<dyn Check<H::Error, H::State>>>,
     event_handler: H,
@@ -34,44 +24,11 @@ impl<
 {
     pub fn new(event_handler: H, state: S) -> Self {
         Self {
-            prefix: Arc::new(Box::new(|_| async move { Ok(vec![]) }.boxed())),
             commands: Commands::new(),
             checks: Vec::new(),
             event_handler,
             state,
         }
-    }
-
-    pub fn with_static_prefix(mut self, prefix: impl Into<String>) -> Self {
-        let prefix = prefix.into();
-
-        self.prefix = Arc::new(Box::new(move |_| {
-            let prefix = prefix.clone();
-            async { Ok(vec![prefix]) }.boxed()
-        }));
-
-        self
-    }
-
-    pub fn with_static_prefixes(mut self, prefixes: Vec<String>) -> Self {
-        self.prefix = Arc::new(Box::new(move |_| {
-            let prefixes = prefixes.clone();
-            async { Ok(prefixes) }.boxed()
-        }));
-
-        self
-    }
-
-    pub fn with_prefix<
-        Fut: Future<Output = Result<Vec<String>, E>> + Send + Sync + 'static,
-        F: for<'a> Fn(&'a Context<H::Error, H::State>) -> Fut + Send + Sync + 'static,
-    >(
-        mut self,
-        f: F,
-    ) -> Self {
-        self.prefix = Arc::new(Box::new(move |context| f(context).boxed()));
-
-        self
     }
 
     pub fn register(self, commands: Vec<Command<E, S>>) -> Self {
@@ -112,6 +69,10 @@ impl<
             return Ok(());
         };
 
+        if message.user.as_ref().unwrap().bot.is_some() {
+            return Ok(());
+        };
+
         let mut cmd_context = Context {
             inner: context,
             prefix: None,
@@ -123,7 +84,7 @@ impl<
             local_state: Arc::new(<TypeMap![Send + Sync]>::new()),
         };
 
-        let prefixes = (self.prefix)(&cmd_context).await?;
+        let prefixes = self.event_handler.get_prefix(cmd_context.clone()).await?;
 
         let Some(prefix) = prefixes
             .into_iter()
@@ -137,41 +98,34 @@ impl<
         let rest = &message_content[prefix.len()..];
 
         cmd_context.words = Words::new(rest);
-        cmd_context.command = self.commands.find_command_from_words(None, &cmd_context.words).await;
+        cmd_context.command = self
+            .commands
+            .find_command_from_words(None, &cmd_context.words)
+            .await;
         cmd_context.prefix = Some(prefix);
 
         if cmd_context.command.is_none() {
             if let Err(e) = self.event_handler.no_command(cmd_context.clone()).await {
-                self.event_handler
-                    .error(cmd_context.clone(), e)
-                    .await?;
+                self.event_handler.error(cmd_context.clone(), e).await?;
             };
 
             return Ok(());
         }
 
         if let Err(e) = self.event_handler.command(cmd_context.clone()).await {
-            self.event_handler
-                .error(cmd_context.clone(), e)
-                .await?;
+            self.event_handler.error(cmd_context.clone(), e).await?;
         };
 
         if let Some(command) = cmd_context.command.as_ref() {
             if let Err(e) = self.can_run(cmd_context.clone()).await {
-                self.event_handler
-                    .error(cmd_context.clone(), e)
-                    .await?;
+                self.event_handler.error(cmd_context.clone(), e).await?;
             } else {
                 if let Err(e) = command.handle.handle(cmd_context.clone()).await {
-                    self.event_handler
-                        .error(cmd_context.clone(), e)
-                        .await?;
+                    self.event_handler.error(cmd_context.clone(), e).await?;
                 };
 
                 if let Err(e) = self.event_handler.after_command(cmd_context.clone()).await {
-                    self.event_handler
-                        .error(cmd_context.clone(), e)
-                        .await?;
+                    self.event_handler.error(cmd_context.clone(), e).await?;
                 };
             }
         }

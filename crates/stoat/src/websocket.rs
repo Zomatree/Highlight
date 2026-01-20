@@ -12,8 +12,8 @@ use tokio::{
     task::AbortHandle,
     time::sleep,
 };
-use tokio_tungstenite::connect_async;
-use tungstenite::Message;
+use tokio_tungstenite::connect_async_with_config;
+use tungstenite::{Message, protocol::WebSocketConfig};
 
 use crate::{Error, cache::GlobalCache};
 
@@ -55,11 +55,18 @@ pub(crate) async fn run(
         "json"
     };
 
-    let uri = format!("{}/?token={token}&format={message_format}", &global_state.api_config.ws);
+    let uri = format!(
+        "{}/?token={token}&format={message_format}",
+        &global_state.api_config.ws
+    );
 
     log::debug!("Connecting to websocket with {uri}");
 
-    let (ws, _) = connect_async(uri).await.inspect_err(|e| {
+    let mut ws_config = WebSocketConfig::default();
+    ws_config.max_frame_size = Some(usize::MAX);
+    ws_config.max_message_size = Some(usize::MAX);
+
+    let (ws, _) = connect_async_with_config(uri, Some(ws_config), false).await.inspect_err(|e| {
         if let tungstenite::Error::Http(resp) = e
             && let Some(body) = resp.body()
             && let Ok(body) = std::str::from_utf8(body)

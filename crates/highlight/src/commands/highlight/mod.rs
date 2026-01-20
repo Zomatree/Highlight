@@ -9,10 +9,10 @@ use crate::{Error, State, utils::MessageExt};
 
 mod add;
 mod block;
+mod clear;
 mod remove;
 mod unblock;
 mod view;
-mod clear;
 
 async fn highlight(ctx: Context<Error, State>) -> Result<(), Error> {
     let server_id = ctx.get_current_server()?.id;

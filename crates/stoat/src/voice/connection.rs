@@ -1,14 +1,10 @@
-use std::{
-    panic::AssertUnwindSafe,
-    sync::Arc,
-    time::Duration,
-};
+use std::{panic::AssertUnwindSafe, sync::Arc, time::Duration};
 
 use crate::{AudioSink, AudioSource, Error, GlobalCache, VideoSource, VoiceEventHandler};
 use futures::{FutureExt, StreamExt, future::try_join_all};
 use livekit::{
     Room, RoomEvent, RoomOptions,
-    options::{TrackPublishOptions},
+    options::TrackPublishOptions,
     prelude::{LocalParticipant, Participant, RemoteParticipant, RemoteTrackPublication},
     track::{LocalAudioTrack, LocalTrack, LocalVideoTrack, RemoteTrack, TrackKind, TrackSource},
     webrtc::{
@@ -22,7 +18,10 @@ use livekit::{
     },
 };
 use stoat_models::v0::{User, UserVoiceState};
-use tokio::{sync::mpsc::UnboundedReceiver, time::{MissedTickBehavior, interval}};
+use tokio::{
+    sync::mpsc::UnboundedReceiver,
+    time::{MissedTickBehavior, interval},
+};
 
 #[derive(Debug, Clone)]
 pub struct VoiceConnection {

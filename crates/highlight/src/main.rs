@@ -15,10 +15,6 @@ async fn main() -> Result<(), Error> {
     state.ensure_db().await;
 
     let commands = CommandHandler::new(commands::CommandEvents, state.clone())
-        .with_static_prefixes(vec![
-            format!("<@{}> ", &state.config.bot.id),
-            state.config.bot.prefix.clone(),
-        ])
         .register(commands::commands());
 
     let events = events::Events {

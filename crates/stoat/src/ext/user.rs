@@ -7,8 +7,7 @@ use stoat_models::v0::{
 };
 
 use crate::{
-    GlobalCache, HttpClient, Identifiable, Result, builders::SendMessageBuilder,
-    created_at,
+    GlobalCache, HttpClient, Identifiable, Result, builders::SendMessageBuilder, created_at,
 };
 
 #[async_trait]
@@ -19,7 +18,11 @@ pub trait UserExt {
     fn voice(&self, cache: impl AsRef<GlobalCache>) -> Vec<(String, UserVoiceState)>;
 
     async fn send(&self, http: impl AsRef<HttpClient> + Send) -> Result<SendMessageBuilder>;
-    async fn edit(&mut self, http: impl AsRef<HttpClient> + Send, data: &DataEditUser) -> Result<()>;
+    async fn edit(
+        &mut self,
+        http: impl AsRef<HttpClient> + Send,
+        data: &DataEditUser,
+    ) -> Result<()>;
     async fn fetch_profile(&self, http: impl AsRef<HttpClient> + Send) -> Result<UserProfile>;
     async fn fetch_flags(&self, http: impl AsRef<HttpClient> + Send) -> Result<FlagResponse>;
     async fn fetch_mutuals(&self, http: impl AsRef<HttpClient> + Send) -> Result<MutualResponse>;
@@ -50,7 +53,7 @@ impl UserExt for User {
                         states.push((channel.clone(), user_voice_state.clone()));
                     }
                 }
-            };
+            }
 
             true
         });
@@ -67,7 +70,11 @@ impl UserExt for User {
         ))
     }
 
-    async fn edit(&mut self, http: impl AsRef<HttpClient> + Send, data: &DataEditUser) -> Result<()> {
+    async fn edit(
+        &mut self,
+        http: impl AsRef<HttpClient> + Send,
+        data: &DataEditUser,
+    ) -> Result<()> {
         let user = http.as_ref().edit_user(&self.id, data).await?;
 
         *self = user;

@@ -75,8 +75,6 @@ impl EditChannelBuilder {
     }
 
     pub async fn build(&self) -> Result<Channel, Error> {
-        self.http
-            .edit_channel(&self.channel_id, &self.data)
-            .await
+        self.http.edit_channel(&self.channel_id, &self.data).await
     }
 }

@@ -213,7 +213,11 @@ impl YoutubeDlpFFmpegPCMAudio {
 
         let stdout = ffmpeg.stdout.take().unwrap();
 
-        Self { ytdlp, ffmpeg, stdout }
+        Self {
+            ytdlp,
+            ffmpeg,
+            stdout,
+        }
     }
 }
 

@@ -1,11 +1,14 @@
 use std::{borrow::Cow, time::Duration};
 
 use stoat::{
-    Context, EventHandler, async_trait,
+    ChannelExt, Context, EventHandler, MessageExt, async_trait,
     builders::{FetchMessagesBuilder, SendMessageBuilder},
     commands::CommandHandler,
     permissions::{ChannelPermission, calculate_channel_permissions, user_permissions_query},
-    types::{Channel, DataEditUser, Member, Message, RemovalIntention, SendableEmbed, UserStatus},
+    types::{
+        Channel, DataEditUser, Member, Message, MessageSort, RemovalIntention, SendableEmbed,
+        UserStatus,
+    },
 };
 
 use crate::{Error, State, commands::CommandEvents};
@@ -33,31 +36,30 @@ impl EventHandler for Events {
             async move { commands.process_commands(context, message).await }
         });
 
-        let Some(content) = &message.content else {
+        if !message.content.is_some() {
             return Ok(());
         };
 
         let channel = ctx.cache.get_channel(&message.channel).unwrap();
 
-        let server_id = match &channel {
-            Channel::TextChannel { server, .. } => server.clone(),
-            _ => return Ok(()),
+        let Some(server_id) = channel.server() else {
+            return Ok(());
         };
 
         let server = ctx.cache.get_server(&server_id).unwrap();
 
-        let regexes = self.state.get_keywords(server_id.clone()).await?;
+        let regexes = self.state.get_keywords(server.id.clone()).await?;
         let known_not_in_server = self
             .state
             .known_not_in_server
             .read()
             .await
-            .get(&server_id)
+            .get(&server.id)
             .cloned()
             .unwrap_or_default();
 
         for (user_id, (_, regex)) in regexes {
-            if known_not_in_server.contains(&user_id) {
+            if known_not_in_server.contains(&user_id) || &user_id == &message.author {
                 continue;
             };
 
@@ -73,16 +75,16 @@ impl EventHandler for Events {
                         .known_not_in_server
                         .write()
                         .await
-                        .entry(server_id.clone())
+                        .entry(server.id.clone())
                         .or_default()
                         .insert(user_id.clone());
 
                     continue;
                 };
 
-                let member = if let Some(member) = ctx.cache.get_member(&server_id, &user_id) {
+                let member = if let Some(member) = ctx.cache.get_member(&server.id, &user_id) {
                     member.clone()
-                } else if let Ok(member) = ctx.http.fetch_member(&server_id, &user_id).await {
+                } else if let Ok(member) = ctx.http.fetch_member(&server.id, &user_id).await {
                     ctx.cache.insert_member(member.clone());
 
                     member
@@ -91,7 +93,7 @@ impl EventHandler for Events {
                         .known_not_in_server
                         .write()
                         .await
-                        .entry(server_id.clone())
+                        .entry(server.id.clone())
                         .or_default()
                         .insert(user_id.clone());
 
@@ -107,49 +109,36 @@ impl EventHandler for Events {
                 calculate_channel_permissions(&mut query).await
             };
 
-            if &user_id == &message.author
-                || !permissions.has(ChannelPermission::ViewChannel as u64)
+            if !permissions.has(ChannelPermission::ViewChannel as u64)
             {
                 continue;
             };
 
             tokio::spawn({
-                let server_id = server_id.clone();
-                let channel_id = message.channel.clone();
-                let message_id = message.id.clone();
-                let content = content.clone();
-                let message_author = message.author.clone();
-
-                let server_name = ctx.cache.get_server(&server_id).unwrap().name;
-                let channel_name = ctx
-                    .cache
-                    .get_channel(&channel_id)
-                    .unwrap()
-                    .name()
-                    .unwrap()
-                    .to_string();
+                let server = server.clone();
+                let channel = channel.clone();
+                let message = message.clone();
 
                 let waiters = ctx.notifiers.clone();
                 let http = ctx.http.clone();
                 let state = self.state.clone();
-                let api_config = ctx.cache.api_config.clone();
 
                 async move {
-                    if let Some(captures) = regex.captures(&content) {
+                    if let Some(captures) = regex.captures(&message.content.as_ref().unwrap()) {
                         let group = captures.get(1).unwrap();
 
                         if state
                             .fetch_blocked_users(user_id.clone())
                             .await
                             .unwrap()
-                            .contains(&message_author)
+                            .contains(&message.author)
                         {
                             return;
                         };
 
                         let msg_fut = waiters.wait_for_message(
                             {
-                                let channel_id = channel_id.clone();
+                                let channel_id = channel.id().to_string();
                                 let user_id = user_id.clone();
 
                                 move |msg| &msg.channel == &channel_id && msg.author == user_id
@@ -159,7 +148,7 @@ impl EventHandler for Events {
 
                         let typing_fut = waiters.wait_for_typing_start(
                             {
-                                let channel_id = channel_id.clone();
+                                let channel_id = channel.id().to_string();
                                 let user_id = user_id.clone();
 
                                 move |(typing_user_id, typing_channel_id)| {
@@ -179,26 +168,24 @@ impl EventHandler for Events {
                         };
 
                         let mut messages =
-                            FetchMessagesBuilder::new(http.clone(), channel_id.clone())
+                            FetchMessagesBuilder::new(http.clone(), channel.id().to_string())
                                 .limit(5)
-                                .nearby(message_id.clone())
+                                .nearby(message.id.clone())
                                 .build_with_users()
                                 .await
                                 .unwrap();
 
                         messages.messages.sort_by(|a, b| a.id.cmp(&b.id));
 
-                        let jump_link = format!(
-                            "{}/server/{server_id}/channel/{channel_id}/{message_id}",
-                            &api_config.app,
-                        );
+                        let jump_link = message.jump_link(&http);
+
                         let keyword = group.as_str();
 
                         let built_messages = messages
                             .messages
                             .iter()
                             .map(|message| {
-                                let (is_main_message, content) = if &message.id == &message_id {
+                                let (is_main_message, content) = if &message.id == &message.id {
                                     let mut raw_content = message.content.clone().unwrap();
 
                                     raw_content.insert_str(group.end(), "**");
@@ -234,10 +221,16 @@ impl EventHandler for Events {
                         let dm_channel = http.open_dm(&user_id).await.unwrap();
 
                         SendMessageBuilder::new(http.clone(), dm_channel.id().to_string())
-                            .content(format!("In [{server_name} › {channel_name}]({jump_link}), you where mentioned with **{keyword}**"))
+                            .content(format!(
+                                "In [{} › {}]({jump_link}), you where mentioned with **{keyword}**",
+                                &server.name,
+                                channel.name().unwrap()
+                            ))
                             .embed(SendableEmbed {
                                 title: Some(keyword.to_string()),
-                                description: Some(format!("{built_messages}\n\n[Jump to]({jump_link})")),
+                                description: Some(format!(
+                                    "{built_messages}\n\n[Jump to]({jump_link})"
+                                )),
                                 ..Default::default()
                             })
                             .build()

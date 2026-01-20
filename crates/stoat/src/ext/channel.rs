@@ -1,12 +1,15 @@
 use std::{collections::HashMap, time::SystemTime};
 
 use crate::{
-    GlobalCache, HttpClient, Identifiable, Result, builders::{FetchMessagesBuilder, SendMessageBuilder}, context::Events, created_at, utils
+    GlobalCache, HttpClient, Identifiable, Result,
+    builders::{EditChannelBuilder, FetchMessagesBuilder, SendMessageBuilder},
+    context::Events,
+    created_at, utils,
 };
 use async_trait::async_trait;
 use stoat_models::v0::{
-    Channel, CreateWebhookBody, DataDefaultChannelPermissions, DataEditChannel,
-    DataSetRolePermissions, File, Message, OptionsBulkDelete, VoiceInformation, Webhook,
+    Channel, CreateWebhookBody, DataDefaultChannelPermissions, DataSetRolePermissions, File,
+    Message, OptionsBulkDelete, VoiceInformation, Webhook,
 };
 use stoat_permissions::{Override, OverrideField};
 
@@ -30,10 +33,18 @@ pub trait ChannelExt {
     fn supports_voice(&self) -> bool;
     fn mention(&self) -> String;
 
-    async fn with_typing<Fut: Future<Output = R> + Send, R>(&self, events: impl AsRef<Events> + Send, fut: Fut) -> R;
+    async fn with_typing<Fut: Future<Output = R> + Send, R>(
+        &self,
+        events: impl AsRef<Events> + Send,
+        fut: Fut,
+    ) -> R;
 
     fn send(&self, http: impl AsRef<HttpClient>) -> SendMessageBuilder;
-    async fn fetch_message(&self, http: impl AsRef<HttpClient> + Send, message_id: &str) -> Result<Message>;
+    async fn fetch_message(
+        &self,
+        http: impl AsRef<HttpClient> + Send,
+        message_id: &str,
+    ) -> Result<Message>;
     fn fetch_messages(&self, http: impl AsRef<HttpClient>) -> FetchMessagesBuilder;
     async fn join_call(
         &self,
@@ -42,21 +53,29 @@ pub trait ChannelExt {
         node: Option<String>,
     ) -> Result<crate::VoiceConnection>;
     async fn delete(&self, http: impl AsRef<HttpClient> + Send) -> Result<()>;
-    async fn edit_channel(&mut self, http: impl AsRef<HttpClient> + Send, data: &DataEditChannel) -> Result<()>;
-    async fn delete_messages(&self, http: impl AsRef<HttpClient> + Send, options: &OptionsBulkDelete) -> Result<()>;
+    async fn edit(&self, http: impl AsRef<HttpClient> + Send) -> EditChannelBuilder;
+    async fn delete_messages(
+        &self,
+        http: impl AsRef<HttpClient> + Send,
+        options: &OptionsBulkDelete,
+    ) -> Result<()>;
     async fn set_default_permissions(
-        &mut self,
+        &self,
         http: impl AsRef<HttpClient> + Send,
         data: &DataDefaultChannelPermissions,
-    ) -> Result<()>;
+    ) -> Result<Channel>;
     async fn set_role_permissions(
-        &mut self,
+        &self,
         http: impl AsRef<HttpClient> + Send,
         role_id: &str,
         allow: u64,
         deny: u64,
-    ) -> Result<()>;
-    async fn create_webhook(&self, http: impl AsRef<HttpClient> + Send, data: &CreateWebhookBody) -> Result<Webhook>;
+    ) -> Result<Channel>;
+    async fn create_webhook(
+        &self,
+        http: impl AsRef<HttpClient> + Send,
+        data: &CreateWebhookBody,
+    ) -> Result<Webhook>;
 }
 
 #[async_trait]
@@ -190,7 +209,11 @@ impl ChannelExt for Channel {
         format!("<#{}>", self.id())
     }
 
-    async fn with_typing<Fut: Future<Output = R> + Send, R>(&self, events: impl AsRef<Events> + Send, fut: Fut) -> R {
+    async fn with_typing<Fut: Future<Output = R> + Send, R>(
+        &self,
+        events: impl AsRef<Events> + Send,
+        fut: Fut,
+    ) -> R {
         utils::with_typing(events.as_ref(), self.id().to_string(), fut).await
     }
 
@@ -198,7 +221,11 @@ impl ChannelExt for Channel {
         SendMessageBuilder::new(http.as_ref().clone(), self.id().to_string())
     }
 
-    async fn fetch_message(&self, http: impl AsRef<HttpClient> + Send, message_id: &str) -> Result<Message> {
+    async fn fetch_message(
+        &self,
+        http: impl AsRef<HttpClient> + Send,
+        message_id: &str,
+    ) -> Result<Message> {
         http.as_ref().fetch_message(self.id(), message_id).await
     }
 
@@ -213,7 +240,8 @@ impl ChannelExt for Channel {
         cache: impl AsRef<GlobalCache> + Send,
         node: Option<String>,
     ) -> Result<crate::VoiceConnection> {
-        let response = http.as_ref()
+        let response = http
+            .as_ref()
             .join_call(
                 self.id(),
                 &stoat_models::v0::DataJoinCall {
@@ -231,40 +259,36 @@ impl ChannelExt for Channel {
         http.as_ref().delete_channel(self.id()).await
     }
 
-    async fn edit_channel(&mut self, http: impl AsRef<HttpClient> + Send, data: &DataEditChannel) -> Result<()> {
-        let channel = http.as_ref().edit_channel(self.id(), data).await?;
-
-        *self = channel;
-
-        Ok(())
+    async fn edit(&self, http: impl AsRef<HttpClient> + Send) -> EditChannelBuilder {
+        EditChannelBuilder::new(http.as_ref().clone(), self.id().to_string())
     }
 
-    async fn delete_messages(&self, http: impl AsRef<HttpClient> + Send, options: &OptionsBulkDelete) -> Result<()> {
+    async fn delete_messages(
+        &self,
+        http: impl AsRef<HttpClient> + Send,
+        options: &OptionsBulkDelete,
+    ) -> Result<()> {
         http.as_ref().delete_messages(self.id(), options).await
     }
 
     async fn set_default_permissions(
-        &mut self,
+        &self,
         http: impl AsRef<HttpClient> + Send,
         data: &DataDefaultChannelPermissions,
-    ) -> Result<()> {
-        let channel = http.as_ref()
+    ) -> Result<Channel> {
+        http.as_ref()
             .set_default_channel_permissions(self.id(), data)
-            .await?;
-
-        *self = channel;
-
-        Ok(())
+            .await
     }
 
     async fn set_role_permissions(
-        &mut self,
+        &self,
         http: impl AsRef<HttpClient> + Send,
         role_id: &str,
         allow: u64,
         deny: u64,
-    ) -> Result<()> {
-        let channel = http.as_ref()
+    ) -> Result<Channel> {
+        http.as_ref()
             .set_role_channel_permissions(
                 self.id(),
                 role_id,
@@ -272,14 +296,14 @@ impl ChannelExt for Channel {
                     permissions: Override { allow, deny },
                 },
             )
-            .await?;
-
-        *self = channel;
-
-        Ok(())
+            .await
     }
 
-    async fn create_webhook(&self, http: impl AsRef<HttpClient> + Send, data: &CreateWebhookBody) -> Result<Webhook> {
+    async fn create_webhook(
+        &self,
+        http: impl AsRef<HttpClient> + Send,
+        data: &CreateWebhookBody,
+    ) -> Result<Webhook> {
         http.as_ref().create_webhook(self.id(), data).await
     }
 }

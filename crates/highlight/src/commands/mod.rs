@@ -19,6 +19,16 @@ impl CommandEventHandler for CommandEvents {
     type Error = Error;
     type State = State;
 
+    async fn get_prefix(&self, ctx: Context<Error, State>) -> Result<Vec<String>, Error> {
+        Ok(vec![
+            format!(
+                "<@{}> ",
+                &ctx.cache.current_user_id.read().unwrap().as_ref().unwrap()
+            ),
+            ctx.state.config.bot.prefix.clone(),
+        ])
+    }
+
     async fn after_command(&self, ctx: Context<Error, State>) -> Result<(), Error> {
         let Some(command) = ctx.command.as_ref() else {
             return Ok(());

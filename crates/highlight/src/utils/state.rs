@@ -184,12 +184,17 @@ impl State {
         Ok(true)
     }
 
-    pub async fn clear_keywords(&self, user_id: &str, server_id: &str) -> Result<Vec<String>, Error> {
-        let keywords = sqlx::query_scalar("delete from highlights where user_id=$1 and server_id=$2")
-            .bind(user_id)
-            .bind(server_id)
-            .fetch_all(&self.pool)
-            .await?;
+    pub async fn clear_keywords(
+        &self,
+        user_id: &str,
+        server_id: &str,
+    ) -> Result<Vec<String>, Error> {
+        let keywords =
+            sqlx::query_scalar("delete from highlights where user_id=$1 and server_id=$2")
+                .bind(user_id)
+                .bind(server_id)
+                .fetch_all(&self.pool)
+                .await?;
 
         if let Some(server_keywords) = self.cached_keywords.lock().await.get_mut(server_id) {
             server_keywords.remove(user_id);

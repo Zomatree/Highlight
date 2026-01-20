@@ -1,5 +1,7 @@
 use stoat::{
-    Client, Context, EventHandler, MessageExt, async_trait, commands::{Command, CommandEventHandler, CommandHandler, Context as CommandContext}, types::Message
+    Client, Context, EventHandler, MessageExt, async_trait,
+    commands::{Command, CommandEventHandler, CommandHandler, Context as CommandContext},
+    types::Message,
 };
 
 #[derive(Debug, Clone)]
@@ -20,6 +22,10 @@ struct Commands;
 impl CommandEventHandler for Commands {
     type State = ();
     type Error = Error;
+
+    async fn get_prefix(&self, _ctx: CmdCtx) -> Result<Vec<String>, Error> {
+        Ok(vec!["!".to_string()])
+    }
 }
 
 #[derive(Clone)]
@@ -46,7 +52,8 @@ impl EventHandler for Events {
 type CmdCtx = CommandContext<Error, ()>;
 
 async fn ping(ctx: CmdCtx) -> Result<(), Error> {
-    ctx.message.reply(&ctx, true)
+    ctx.message
+        .reply(&ctx, true)
         .content("Pong!".to_string())
         .build()
         .await?;
@@ -56,13 +63,9 @@ async fn ping(ctx: CmdCtx) -> Result<(), Error> {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let commands = CommandHandler::new(Commands, ())
-        .with_static_prefix("!")
-        .register(vec![Command::new("ping", ping)]);
+    let commands = CommandHandler::new(Commands, ()).register(vec![Command::new("ping", ping)]);
 
     let events = Events(commands);
 
-    Client::new(events).await?
-        .run("TOKEN HERE")
-        .await
+    Client::new(events).await?.run("TOKEN HERE").await
 }

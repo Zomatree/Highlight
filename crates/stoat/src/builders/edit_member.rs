@@ -96,6 +96,8 @@ impl EditMemberBuilder {
     }
 
     pub async fn build(&self) -> Result<Member, Error> {
-        self.http.edit_member(&self.server_id, &self.member_id, &self.data).await
+        self.http
+            .edit_member(&self.server_id, &self.member_id, &self.data)
+            .await
     }
 }

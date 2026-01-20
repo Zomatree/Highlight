@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
+
 pub use stoat_models::v0::*;
+pub use stoat_permissions::{ChannelPermission, PermissionValue, UserPermission, Override, OverrideField, DataPermissionsValue};
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct CaptchaFeature {

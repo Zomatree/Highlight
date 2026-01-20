@@ -39,8 +39,6 @@ impl CreateChannelBuilder {
     }
 
     pub async fn build(&self) -> Result<Channel, Error> {
-        self.http
-            .create_channel(&self.server_id, &self.data)
-            .await
+        self.http.create_channel(&self.server_id, &self.data).await
     }
 }

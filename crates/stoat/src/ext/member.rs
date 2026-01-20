@@ -3,7 +3,9 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use stoat_models::v0::{DataBanCreate, DataMemberEdit, Member, Role, ServerBan, UserVoiceState};
 
-use crate::{GlobalCache, HttpClient, Identifiable, Result, created_at};
+use crate::{
+    GlobalCache, HttpClient, Identifiable, Result, builders::EditMemberBuilder, created_at,
+};
 
 #[async_trait]
 pub trait MemberExt {
@@ -12,17 +14,13 @@ pub trait MemberExt {
         http: impl AsRef<HttpClient> + Send,
         reason: Option<String>,
     ) -> Result<ServerBan>;
-    async fn edit(
-        &mut self,
-        http: impl AsRef<HttpClient> + Send,
-        data: &DataMemberEdit,
-    ) -> Result<()>;
+    async fn edit(&self, http: impl AsRef<HttpClient> + Send) -> EditMemberBuilder;
     async fn kick(&self, http: impl AsRef<HttpClient> + Send) -> Result<()>;
     async fn add_roles(
-        &mut self,
+        &self,
         http: impl AsRef<HttpClient> + Send,
         roles: Vec<Role>,
-    ) -> Result<()>;
+    ) -> Result<Member>;
     fn voice(&self, cache: impl AsRef<GlobalCache>) -> Option<(String, UserVoiceState)>;
 }
 
@@ -38,19 +36,12 @@ impl MemberExt for Member {
             .await
     }
 
-    async fn edit(
-        &mut self,
-        http: impl AsRef<HttpClient> + Send,
-        data: &DataMemberEdit,
-    ) -> Result<()> {
-        let member = http
-            .as_ref()
-            .edit_member(&self.id.server, &self.id.user, data)
-            .await?;
-
-        *self = member;
-
-        Ok(())
+    async fn edit(&self, http: impl AsRef<HttpClient> + Send) -> EditMemberBuilder {
+        EditMemberBuilder::new(
+            http.as_ref().clone(),
+            self.id.server.clone(),
+            self.id.user.clone(),
+        )
     }
 
     async fn kick(&self, http: impl AsRef<HttpClient> + Send) -> Result<()> {
@@ -60,29 +51,29 @@ impl MemberExt for Member {
     }
 
     async fn add_roles(
-        &mut self,
+        &self,
         http: impl AsRef<HttpClient> + Send,
         roles: Vec<Role>,
-    ) -> Result<()> {
+    ) -> Result<Member> {
         let mut new_roles = self.roles.clone();
         new_roles.extend(roles.into_iter().map(|r| r.id));
 
-        self.edit(
-            http,
-            &DataMemberEdit {
-                nickname: None,
-                avatar: None,
-                roles: Some(new_roles),
-                timeout: None,
-                can_publish: None,
-                can_receive: None,
-                voice_channel: None,
-                remove: Vec::new(),
-            },
-        )
-        .await?;
-
-        Ok(())
+        http.as_ref()
+            .edit_member(
+                &self.id.server,
+                &self.id.user,
+                &DataMemberEdit {
+                    nickname: None,
+                    avatar: None,
+                    roles: Some(new_roles),
+                    timeout: None,
+                    can_publish: None,
+                    can_receive: None,
+                    voice_channel: None,
+                    remove: Vec::new(),
+                },
+            )
+            .await
     }
 
     fn voice(&self, cache: impl AsRef<GlobalCache>) -> Option<(String, UserVoiceState)> {

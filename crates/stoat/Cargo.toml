@@ -6,7 +6,7 @@ edition = "2024"
 [features]
 voice = ["livekit", "livekit-api", "livekit-protocol", "livekit-runtime", "hound", "ping"]
 msgpack = ["rmp-serde"]
-default = ["voice"]
+default = []
 
 [dependencies]
 # Stoat

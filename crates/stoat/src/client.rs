@@ -4,10 +4,7 @@ use futures::FutureExt;
 use stoat_database::events::client::EventV1;
 use tokio::{
     select,
-    sync::{
-        Mutex,
-        mpsc::{self, UnboundedReceiver},
-    },
+    sync::{Mutex, mpsc},
 };
 
 use crate::{
@@ -87,7 +84,7 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
                         log::error!("{e:?}");
 
                         if let Error::Close = e {
-                            return Ok(())
+                            return Ok(());
                         }
                     }
 
@@ -120,7 +117,7 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
         self.events = None;
     }
 
-    async fn handle_events(&self, mut receiver: UnboundedReceiver<EventV1>) {
+    async fn handle_events(&self, mut receiver: mpsc::UnboundedReceiver<EventV1>) {
         while let Some(event) = receiver.recv().await {
             let this = self.clone();
 

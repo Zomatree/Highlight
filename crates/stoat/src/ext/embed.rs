@@ -18,7 +18,7 @@ impl EmbedExt for SendableEmbed {
     fn url(mut self, url: String) -> Self {
         self.icon_url = Some(url);
         self
-        }
+    }
 
     fn title(mut self, title: String) -> Self {
         self.title = Some(title);

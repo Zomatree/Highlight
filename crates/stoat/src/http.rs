@@ -5,8 +5,8 @@ use std::{
 };
 
 use bytes::Bytes;
-use scc::HashMap;
 use reqwest::{Client, Method, Request, RequestBuilder, Response};
+use scc::HashMap;
 use serde::{Deserialize, Serialize};
 use stoat_models::v0::{
     BanListResult, BulkMessageResponse, Channel, CreateVoiceUserResponse, CreateWebhookBody,
@@ -49,6 +49,18 @@ pub struct HttpClient {
 
 impl AsRef<HttpClient> for HttpClient {
     fn as_ref(&self) -> &HttpClient {
+        self
+    }
+}
+
+impl AsRef<StoatConfig> for HttpClient {
+    fn as_ref(&self) -> &StoatConfig {
+        &self.api_config
+    }
+}
+
+impl AsRef<StoatConfig> for StoatConfig {
+    fn as_ref(&self) -> &StoatConfig {
         self
     }
 }

@@ -192,7 +192,6 @@ impl<E: From<Error>, S: Send + Sync> Converter<E, S> for ConsumeRest {
     }
 }
 
-
 #[cfg(feature = "either")]
 #[async_trait]
 impl<E: From<Error>, S: Send + Sync, L: Converter<E, S>, R: Converter<E, S>> Converter<E, S>
@@ -249,15 +248,13 @@ impl<E: From<Error>, S: Send + Sync, T: Converter<E, S> + Send + Sync> Converter
 }
 
 #[async_trait]
-impl<E: From<Error>, S: Send + Sync, T: Converter<E, S> + Send + Sync> Converter<E, S>
-    for Vec<T>
-{
+impl<E: From<Error>, S: Send + Sync, T: Converter<E, S> + Send + Sync> Converter<E, S> for Vec<T> {
     async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
         let mut converted = Vec::new();
 
         while let Some(arg) = context.words.next() {
             converted.push(T::convert(context, arg).await?);
-        };
+        }
 
         Ok(converted)
     }

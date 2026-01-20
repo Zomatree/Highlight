@@ -685,18 +685,10 @@ pub async fn update_state<H: EventHandler + Clone + Send + Sync + 'static>(
                 } else {
                     context
                         .notifiers
-                        .invoke_server_role_create_waiters(&(
-                            id.clone(),
-                            after.clone(),
-                        ))
+                        .invoke_server_role_create_waiters(&(id.clone(), after.clone()))
                         .await;
 
-                    handle_event!(
-                        handler,
-                        context,
-                        server_role_create,
-                        (id, after)
-                    )
+                    handle_event!(handler, context, server_role_create, (id, after))
                 }
             }
         }

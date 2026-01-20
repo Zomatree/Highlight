@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use crate::{
     HttpClient, Identifiable, Result,
     builders::{EditMessageBuilder, SendMessageBuilder},
-    created_at,
+    created_at, types::StoatConfig,
 };
 use async_trait::async_trait;
 use stoat_models::v0::{Message, OptionsUnreact};
@@ -24,12 +24,15 @@ pub trait MessageExt {
         emoji: &str,
         options: &OptionsUnreact,
     ) -> Result<()>;
+
+    fn jump_link(&self, config: impl AsRef<StoatConfig>) -> String;
 }
 
 #[async_trait]
 impl MessageExt for Message {
     fn reply(&self, http: impl AsRef<HttpClient>, mention: bool) -> SendMessageBuilder {
-        SendMessageBuilder::new(http.as_ref().clone(), self.channel.clone()).reply(self.id.clone(), mention)
+        SendMessageBuilder::new(http.as_ref().clone(), self.channel.clone())
+            .reply(self.id.clone(), mention)
     }
 
     fn edit(&self, http: impl AsRef<HttpClient>) -> EditMessageBuilder {
@@ -41,7 +44,9 @@ impl MessageExt for Message {
     }
 
     async fn clear_reactions(&mut self, http: impl AsRef<HttpClient> + Send) -> Result<()> {
-        http.as_ref().clear_reactions(&self.channel, &self.id).await?;
+        http.as_ref()
+            .clear_reactions(&self.channel, &self.id)
+            .await?;
 
         self.reactions.clear();
 
@@ -65,7 +70,9 @@ impl MessageExt for Message {
     }
 
     async fn react(&mut self, http: impl AsRef<HttpClient> + Send, emoji: &str) -> Result<()> {
-        http.as_ref().react_message(&self.channel, &self.id, emoji).await?;
+        http.as_ref()
+            .react_message(&self.channel, &self.id, emoji)
+            .await?;
 
         if let Some(user_id) = http.as_ref().user_id.clone() {
             self.reactions
@@ -78,16 +85,17 @@ impl MessageExt for Message {
     }
 
     async fn unreact(&mut self, http: impl AsRef<HttpClient> + Send, emoji: &str) -> Result<()> {
-        http.as_ref().unreact_message(
-            &self.channel,
-            &self.id,
-            emoji,
-            &OptionsUnreact {
-                user_id: None,
-                remove_all: None,
-            },
-        )
-        .await?;
+        http.as_ref()
+            .unreact_message(
+                &self.channel,
+                &self.id,
+                emoji,
+                &OptionsUnreact {
+                    user_id: None,
+                    remove_all: None,
+                },
+            )
+            .await?;
 
         if let Some(user_id) = &http.as_ref().user_id {
             if let Some(users) = self.reactions.get_mut(emoji) {
@@ -104,7 +112,8 @@ impl MessageExt for Message {
         emoji: &str,
         options: &OptionsUnreact,
     ) -> Result<()> {
-        http.as_ref().unreact_message(&self.channel, &self.id, emoji, options)
+        http.as_ref()
+            .unreact_message(&self.channel, &self.id, emoji, options)
             .await?;
 
         if options.remove_all == Some(true) {
@@ -120,6 +129,10 @@ impl MessageExt for Message {
         };
 
         Ok(())
+    }
+
+    fn jump_link(&self, config: impl AsRef<StoatConfig>) -> String {
+        format!("{}/channel/{}/{}", &config.as_ref().app, &self.channel, &self.id)
     }
 }
 

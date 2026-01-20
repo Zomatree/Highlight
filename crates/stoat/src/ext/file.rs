@@ -15,14 +15,17 @@ pub trait FileExt {
 #[async_trait]
 impl FileExt for File {
     fn url(&self, http: impl AsRef<HttpClient>, preview: bool) -> String {
-        http.as_ref().format_file_url(&self.tag, &self.id, preview.then_some(&self.filename))
+        http.as_ref()
+            .format_file_url(&self.tag, &self.id, preview.then_some(&self.filename))
     }
 
     async fn bytes(&self, http: impl AsRef<HttpClient> + Send, preview: bool) -> Result<Bytes> {
         if preview {
             http.as_ref().fetch_image_preview(&self.tag, &self.id).await
         } else {
-            http.as_ref().fetch_image(&self.tag, &self.id, &self.filename).await
+            http.as_ref()
+                .fetch_image(&self.tag, &self.id, &self.filename)
+                .await
         }
     }
 }
