@@ -1966,7 +1966,7 @@ dependencies = [
  "regex",
  "serde",
  "sqlx",
- "stoat",
+ "stoat-rs",
  "tokio 1.48.0",
  "toml 0.9.8",
  "ulid 1.2.1",
@@ -5475,7 +5475,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "stoat"
+name = "stoat-rs"
 version = "0.1.0"
 dependencies = [
  "async-recursion",

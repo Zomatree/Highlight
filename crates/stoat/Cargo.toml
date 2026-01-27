@@ -1,7 +1,10 @@
 [package]
-name = "stoat"
+name = "stoat-rs"
 version = "0.1.0"
 edition = "2024"
+
+[lib]
+name = "stoat"
 
 [features]
 voice = ["livekit", "livekit-api", "livekit-protocol", "livekit-runtime", "hound", "ping"]
