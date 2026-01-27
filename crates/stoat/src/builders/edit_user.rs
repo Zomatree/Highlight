@@ -25,7 +25,7 @@ impl EditUserBuilder {
         }
     }
 
-    pub fn display_name(mut self, display_name: Option<String>) -> Self {
+    pub fn display_name(&mut self, display_name: Option<String>) -> &mut Self {
         if display_name.is_some() {
             self.data.display_name = display_name;
         } else {
@@ -35,7 +35,7 @@ impl EditUserBuilder {
         self
     }
 
-    pub fn avatar(mut self, avatar: Option<String>) -> Self {
+    pub fn avatar(&mut self, avatar: Option<String>) -> &mut Self {
         if avatar.is_some() {
             self.data.avatar = avatar;
         } else {
@@ -45,7 +45,7 @@ impl EditUserBuilder {
         self
     }
 
-    pub fn status_text(mut self, text: Option<String>) -> Self {
+    pub fn status_text(&mut self, text: Option<String>) -> &mut Self {
         if text.is_some() {
             self.data.status.get_or_insert_default().text = text;
         } else {
@@ -55,7 +55,7 @@ impl EditUserBuilder {
         self
     }
 
-    pub fn status_presence(mut self, presence: Option<Presence>) -> Self {
+    pub fn status_presence(&mut self, presence: Option<Presence>) -> &mut Self {
         if presence.is_some() {
             self.data.status.get_or_insert_default().presence = presence;
         } else {
@@ -65,7 +65,7 @@ impl EditUserBuilder {
         self
     }
 
-    pub fn profile_content(mut self, content: Option<String>) -> Self {
+    pub fn profile_content(&mut self, content: Option<String>) -> &mut Self {
         if content.is_some() {
             self.data
                 .profile
@@ -81,7 +81,7 @@ impl EditUserBuilder {
         self
     }
 
-    pub fn profile_background(mut self, background: Option<String>) -> Self {
+    pub fn profile_background(&mut self, background: Option<String>) -> &mut Self {
         if background.is_some() {
             self.data
                 .profile

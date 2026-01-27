@@ -22,13 +22,13 @@ impl EditMessageBuilder {
         }
     }
 
-    pub fn content(mut self, content: String) -> Self {
+    pub fn content(&mut self, content: String) -> &mut Self {
         self.data.content = Some(content);
 
         self
     }
 
-    pub fn embed(mut self, embed: SendableEmbed) -> Self {
+    pub fn embed(&mut self, embed: SendableEmbed) -> &mut Self {
         self.data.embeds.get_or_insert_default().push(embed);
 
         self

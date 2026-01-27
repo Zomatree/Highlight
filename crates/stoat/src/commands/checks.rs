@@ -8,7 +8,11 @@ use stoat_permissions::ChannelPermission;
 use crate::{Error, commands::Context};
 
 #[async_trait]
-pub trait Check<E, S>: Send + Sync + 'static {
+pub trait Check<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+>: Send + Sync + 'static
+{
     async fn run(&self, context: Context<E, S>) -> Result<bool, E>;
 }
 
@@ -34,8 +38,10 @@ impl HasChannelPermissions {
 }
 
 #[async_trait]
-impl<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 'static> Check<E, S>
-    for HasChannelPermissions
+impl<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> Check<E, S> for HasChannelPermissions
 {
     async fn run(&self, context: Context<E, S>) -> Result<bool, E> {
         let permissions = context.get_author_channel_permissions().await;
@@ -59,8 +65,10 @@ impl HasServerPermissions {
 }
 
 #[async_trait]
-impl<E: From<Error> + Send + Sync + 'static, S: Debug + Clone + Send + Sync + 'static> Check<E, S>
-    for HasServerPermissions
+impl<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> Check<E, S> for HasServerPermissions
 {
     async fn run(&self, context: Context<E, S>) -> Result<bool, E> {
         let permissions = context.get_author_server_permissions().await;
@@ -78,8 +86,10 @@ impl<E: From<Error> + Send + Sync + 'static, S: Debug + Clone + Send + Sync + 's
 pub struct CheckAny<E, S>(pub Arc<Vec<Box<dyn Check<E, S>>>>);
 
 #[async_trait]
-impl<E: From<Error> + Clone + Send + Sync + 'static, S: Clone + Send + Sync + 'static> Check<E, S>
-    for CheckAny<E, S>
+impl<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> Check<E, S> for CheckAny<E, S>
 {
     async fn run(&self, context: Context<E, S>) -> Result<bool, E> {
         for check in self.0.iter() {
@@ -98,7 +108,10 @@ impl<E, S> CheckAny<E, S> {
     }
 }
 
-pub async fn server_only<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 'static>(
+pub async fn server_only<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+>(
     context: Context<E, S>,
 ) -> Result<bool, E> {
     match context.get_current_channel() {
@@ -107,7 +120,10 @@ pub async fn server_only<E: From<Error> + Send + Sync + 'static, S: Send + Sync 
     }
 }
 
-pub async fn dm_only<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 'static>(
+pub async fn dm_only<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+>(
     context: Context<E, S>,
 ) -> Result<bool, E> {
     match context.get_current_channel() {
@@ -118,7 +134,10 @@ pub async fn dm_only<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 's
     }
 }
 
-pub async fn is_owner<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 'static>(
+pub async fn is_owner<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+>(
     context: Context<E, S>,
 ) -> Result<bool, E> {
     if let Some(user) = context.cache.get_current_user() {
@@ -132,7 +151,10 @@ pub async fn is_owner<E: From<Error> + Send + Sync + 'static, S: Send + Sync + '
     Err(Error::NotOwner.into())
 }
 
-pub async fn is_nsfw<E: From<Error> + Send + Sync + 'static, S: Send + Sync + 'static>(
+pub async fn is_nsfw<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+>(
     context: Context<E, S>,
 ) -> Result<bool, E> {
     let channel = context.get_current_channel()?;

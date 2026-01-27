@@ -14,8 +14,8 @@ async fn main() -> Result<(), Error> {
 
     state.ensure_db().await;
 
-    let commands = CommandHandler::new(commands::CommandEvents, state.clone())
-        .register(commands::commands());
+    let commands =
+        CommandHandler::new(commands::CommandEvents, state.clone()).register(commands::commands());
 
     let events = events::Events {
         commands,

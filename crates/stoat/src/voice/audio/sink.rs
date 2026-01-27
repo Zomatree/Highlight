@@ -1,7 +1,7 @@
 use std::io::{BufWriter, Seek, Write};
 
 use async_trait::async_trait;
-use hound::{self, SampleFormat, WavSpec, WavWriter};
+use hound::{SampleFormat, WavSpec, WavWriter};
 use livekit::{prelude::RemoteParticipant, track::RemoteAudioTrack, webrtc::prelude::AudioFrame};
 
 #[async_trait]

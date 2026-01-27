@@ -102,7 +102,10 @@ impl ServerExt for Server {
         http: impl AsRef<HttpClient> + Send,
         name: String,
     ) -> Result<Role> {
-        let role = http.as_ref().create_role(&self.id, &DataCreateRole { name, rank: None }).await?;
+        let role = http
+            .as_ref()
+            .create_role(&self.id, &DataCreateRole { name, rank: None })
+            .await?;
 
         self.roles.insert(role.id, role.role.clone());
 

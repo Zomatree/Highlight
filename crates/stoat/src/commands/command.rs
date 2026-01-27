@@ -16,13 +16,14 @@ use crate::{
 #[derive(Clone)]
 pub struct Command<E, S> {
     pub name: String,
-    pub handle: Arc<Box<dyn CommandHandle<(), E, S>>>,
+    pub handle: Arc<dyn CommandHandle<(), E, S>>,
     pub children: HashMap<String, Command<E, S>>,
     pub checks: Vec<Arc<dyn Check<E, S>>>,
     pub aliases: Vec<String>,
     pub description: Option<String>,
     pub signature: Option<String>,
     pub parents: Vec<String>,
+    pub hidden: bool,
 }
 
 impl<E, S> fmt::Debug for Command<E, S> {
@@ -53,13 +54,14 @@ impl<
 
         Self {
             name: name.into(),
-            handle: Arc::new(Box::new(erased)),
+            handle: Arc::new(erased),
             children: HashMap::new(),
             checks: Vec::new(),
             aliases: Vec::new(),
             description: None,
             signature: None,
             parents: Vec::new(),
+            hidden: false,
         }
     }
 
@@ -100,6 +102,12 @@ impl<
         self
     }
 
+    pub fn hidden(mut self) -> Self {
+        self.hidden = true;
+
+        self
+    }
+
     pub fn children(&self) -> Vec<Command<E, S>> {
         self.children
             .clone()
@@ -125,7 +133,12 @@ impl<
 }
 
 #[async_trait]
-pub trait CommandHandle<T, E, S>: Send + Sync + 'static {
+pub trait CommandHandle<
+    T,
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+>: Send + Sync + 'static
+{
     async fn handle(&self, context: Context<E, S>) -> Result<(), E>;
 }
 

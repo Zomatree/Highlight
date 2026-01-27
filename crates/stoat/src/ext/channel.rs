@@ -1,7 +1,7 @@
 use std::{collections::HashMap, time::SystemTime};
 
 use crate::{
-    GlobalCache, HttpClient, Identifiable, Result,
+    HttpClient, Identifiable, Result,
     builders::{EditChannelBuilder, FetchMessagesBuilder, SendMessageBuilder},
     context::Events,
     created_at, utils,
@@ -46,10 +46,11 @@ pub trait ChannelExt {
         message_id: &str,
     ) -> Result<Message>;
     fn fetch_messages(&self, http: impl AsRef<HttpClient>) -> FetchMessagesBuilder;
+    #[cfg(feature = "voice")]
     async fn join_call(
         &self,
         http: impl AsRef<HttpClient> + Send,
-        cache: impl AsRef<GlobalCache> + Send,
+        cache: impl AsRef<crate::GlobalCache> + Send,
         node: Option<String>,
     ) -> Result<crate::VoiceConnection>;
     async fn delete(&self, http: impl AsRef<HttpClient> + Send) -> Result<()>;
@@ -237,7 +238,7 @@ impl ChannelExt for Channel {
     async fn join_call(
         &self,
         http: impl AsRef<HttpClient> + Send,
-        cache: impl AsRef<GlobalCache> + Send,
+        cache: impl AsRef<crate::GlobalCache> + Send,
         node: Option<String>,
     ) -> Result<crate::VoiceConnection> {
         let response = http

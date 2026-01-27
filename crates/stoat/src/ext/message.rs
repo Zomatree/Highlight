@@ -3,7 +3,8 @@ use std::time::SystemTime;
 use crate::{
     HttpClient, Identifiable, Result,
     builders::{EditMessageBuilder, SendMessageBuilder},
-    created_at, types::StoatConfig,
+    created_at,
+    types::StoatConfig,
 };
 use async_trait::async_trait;
 use stoat_models::v0::{Message, OptionsUnreact};
@@ -31,8 +32,9 @@ pub trait MessageExt {
 #[async_trait]
 impl MessageExt for Message {
     fn reply(&self, http: impl AsRef<HttpClient>, mention: bool) -> SendMessageBuilder {
-        SendMessageBuilder::new(http.as_ref().clone(), self.channel.clone())
-            .reply(self.id.clone(), mention)
+        let mut builder = SendMessageBuilder::new(http.as_ref().clone(), self.channel.clone());
+        builder.reply(self.id.clone(), mention);
+        builder
     }
 
     fn edit(&self, http: impl AsRef<HttpClient>) -> EditMessageBuilder {
@@ -132,7 +134,12 @@ impl MessageExt for Message {
     }
 
     fn jump_link(&self, config: impl AsRef<StoatConfig>) -> String {
-        format!("{}/channel/{}/{}", &config.as_ref().app, &self.channel, &self.id)
+        format!(
+            "{}/channel/{}/{}",
+            &config.as_ref().app,
+            &self.channel,
+            &self.id
+        )
     }
 }
 

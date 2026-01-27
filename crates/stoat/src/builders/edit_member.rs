@@ -29,7 +29,7 @@ impl EditMemberBuilder {
         }
     }
 
-    pub fn nickname(mut self, nickname: Option<String>) -> Self {
+    pub fn nickname(&mut self, nickname: Option<String>) -> &mut Self {
         if nickname.is_some() {
             self.data.nickname = nickname;
         } else {
@@ -39,7 +39,7 @@ impl EditMemberBuilder {
         self
     }
 
-    pub fn avatar(mut self, avatar: Option<String>) -> Self {
+    pub fn avatar(&mut self, avatar: Option<String>) -> &mut Self {
         if avatar.is_some() {
             self.data.avatar = avatar;
         } else {
@@ -49,7 +49,7 @@ impl EditMemberBuilder {
         self
     }
 
-    pub fn roles(mut self, roles: Vec<String>) -> Self {
+    pub fn roles(&mut self, roles: Vec<String>) -> &mut Self {
         if !roles.is_empty() {
             self.data.roles = Some(roles);
         } else {
@@ -59,7 +59,7 @@ impl EditMemberBuilder {
         self
     }
 
-    pub fn timeout<T: Into<Timestamp>>(mut self, timestamp: Option<T>) -> Self {
+    pub fn timeout<T: Into<Timestamp>>(&mut self, timestamp: Option<T>) -> &mut Self {
         if let Some(timestamp) = timestamp {
             self.data.timeout = Some(timestamp.into());
         } else {
@@ -69,7 +69,7 @@ impl EditMemberBuilder {
         self
     }
 
-    pub fn can_publish(mut self, can_publish: Option<bool>) -> Self {
+    pub fn can_publish(&mut self, can_publish: Option<bool>) -> &mut Self {
         if can_publish.is_some() {
             self.data.can_publish = can_publish;
         } else {
@@ -79,7 +79,7 @@ impl EditMemberBuilder {
         self
     }
 
-    pub fn can_receive(mut self, can_receive: Option<bool>) -> Self {
+    pub fn can_receive(&mut self, can_receive: Option<bool>) -> &mut Self {
         if can_receive.is_some() {
             self.data.can_receive = can_receive;
         } else {
@@ -89,7 +89,7 @@ impl EditMemberBuilder {
         self
     }
 
-    pub fn voice_channel(mut self, voice_channel: String) -> Self {
+    pub fn voice_channel(&mut self, voice_channel: String) -> &mut Self {
         self.data.voice_channel = Some(voice_channel);
 
         self

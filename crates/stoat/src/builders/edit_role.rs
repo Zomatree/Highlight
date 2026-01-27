@@ -25,13 +25,13 @@ impl EditRoleBuilder {
         }
     }
 
-    pub fn name(mut self, name: String) -> Self {
+    pub fn name(&mut self, name: String) -> &mut Self {
         self.data.name = Some(name);
 
         self
     }
 
-    pub fn colour(mut self, colour: Option<String>) -> Self {
+    pub fn colour(&mut self, colour: Option<String>) -> &mut Self {
         if colour.is_some() {
             self.data.colour = colour;
         } else {
@@ -41,7 +41,7 @@ impl EditRoleBuilder {
         self
     }
 
-    pub fn hoist(mut self, hoist: bool) -> Self {
+    pub fn hoist(&mut self, hoist: bool) -> &mut Self {
         self.data.hoist = Some(hoist);
 
         self

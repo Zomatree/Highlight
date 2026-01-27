@@ -22,6 +22,7 @@ pub trait MemberExt {
         roles: Vec<Role>,
     ) -> Result<Member>;
     fn voice(&self, cache: impl AsRef<GlobalCache>) -> Option<(String, UserVoiceState)>;
+    fn mention(&self) -> String;
 }
 
 #[async_trait]
@@ -96,6 +97,10 @@ impl MemberExt for Member {
         }
 
         None
+    }
+
+    fn mention(&self) -> String {
+        format!("<@{}>", &self.id.user)
     }
 }
 

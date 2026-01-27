@@ -2,12 +2,11 @@ use std::time::Duration;
 
 use stoat::{
     ChannelExt, async_trait,
-    commands::{Command, CommandEventHandler, Context},
+    commands::{Command, CommandEventHandler, Context, when_mentioned_or},
 };
 
 use crate::{Error, State, utils::MessageExt};
 
-mod help;
 mod highlight;
 mod info;
 
@@ -20,13 +19,7 @@ impl CommandEventHandler for CommandEvents {
     type State = State;
 
     async fn get_prefix(&self, ctx: Context<Error, State>) -> Result<Vec<String>, Error> {
-        Ok(vec![
-            format!(
-                "<@{}> ",
-                &ctx.cache.current_user_id.read().unwrap().as_ref().unwrap()
-            ),
-            ctx.state.config.bot.prefix.clone(),
-        ])
+        Ok(when_mentioned_or(&ctx, &[ctx.state.config.bot.prefix.clone()]))
     }
 
     async fn after_command(&self, ctx: Context<Error, State>) -> Result<(), Error> {
@@ -60,7 +53,6 @@ impl CommandEventHandler for CommandEvents {
 
 pub fn commands() -> Vec<Command<Error, State>> {
     vec![
-        help::command(),
         highlight::command(),
         info::command(),
     ]

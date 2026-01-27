@@ -6,6 +6,7 @@ mod member;
 mod message;
 mod role;
 mod server;
+mod stoat;
 mod user;
 
 pub use channel::ChannelExt;
@@ -16,4 +17,5 @@ pub use member::MemberExt;
 pub use message::MessageExt;
 pub use role::RoleExt;
 pub use server::ServerExt;
+pub use stoat::StoatExt;
 pub use user::UserExt;

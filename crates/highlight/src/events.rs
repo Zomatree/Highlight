@@ -5,10 +5,7 @@ use stoat::{
     builders::{FetchMessagesBuilder, SendMessageBuilder},
     commands::CommandHandler,
     permissions::{ChannelPermission, calculate_channel_permissions, user_permissions_query},
-    types::{
-        Channel, DataEditUser, Member, Message, MessageSort, RemovalIntention, SendableEmbed,
-        UserStatus,
-    },
+    types::{DataEditUser, Member, Message, RemovalIntention, SendableEmbed, UserStatus},
 };
 
 use crate::{Error, State, commands::CommandEvents};
@@ -109,8 +106,7 @@ impl EventHandler for Events {
                 calculate_channel_permissions(&mut query).await
             };
 
-            if !permissions.has(ChannelPermission::ViewChannel as u64)
-            {
+            if !permissions.has(ChannelPermission::ViewChannel as u64) {
                 continue;
             };
 

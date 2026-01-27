@@ -63,7 +63,8 @@ async fn ping(ctx: CmdCtx) -> Result<(), Error> {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let commands = CommandHandler::new(Commands, ()).register(vec![Command::new("ping", ping)]);
+    let commands = CommandHandler::new(Commands, ())
+        .register(vec![Command::new("ping", ping).description("Pong")]);
 
     let events = Events(commands);
 

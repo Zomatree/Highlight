@@ -66,14 +66,16 @@ pub(crate) async fn run(
     ws_config.max_frame_size = Some(usize::MAX);
     ws_config.max_message_size = Some(usize::MAX);
 
-    let (ws, _) = connect_async_with_config(uri, Some(ws_config), false).await.inspect_err(|e| {
-        if let tungstenite::Error::Http(resp) = e
-            && let Some(body) = resp.body()
-            && let Ok(body) = std::str::from_utf8(body)
-        {
-            log::error!("Error when attempting to establish websocket connection:\n{body}");
-        };
-    })?;
+    let (ws, _) = connect_async_with_config(uri, Some(ws_config), false)
+        .await
+        .inspect_err(|e| {
+            if let tungstenite::Error::Http(resp) = e
+                && let Some(body) = resp.body()
+                && let Ok(body) = std::str::from_utf8(body)
+            {
+                log::error!("Error when attempting to establish websocket connection:\n{body}");
+            };
+        })?;
 
     let (ws_send, mut ws_receive) = ws.split();
 

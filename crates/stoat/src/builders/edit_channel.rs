@@ -26,13 +26,13 @@ impl EditChannelBuilder {
         }
     }
 
-    pub fn name(mut self, name: String) -> Self {
+    pub fn name(&mut self, name: String) -> &mut Self {
         self.data.name = Some(name);
 
         self
     }
 
-    pub fn description(mut self, description: Option<String>) -> Self {
+    pub fn description(&mut self, description: Option<String>) -> &mut Self {
         if description.is_some() {
             self.data.description = description
         } else {
@@ -42,13 +42,13 @@ impl EditChannelBuilder {
         self
     }
 
-    pub fn owner(mut self, owner: String) -> Self {
+    pub fn owner(&mut self, owner: String) -> &mut Self {
         self.data.owner = Some(owner);
 
         self
     }
 
-    pub fn icon(mut self, icon: Option<String>) -> Self {
+    pub fn icon(&mut self, icon: Option<String>) -> &mut Self {
         if icon.is_some() {
             self.data.icon = icon
         } else {
@@ -58,13 +58,13 @@ impl EditChannelBuilder {
         self
     }
 
-    pub fn nsfw(mut self, nsfw: bool) -> Self {
+    pub fn nsfw(&mut self, nsfw: bool) -> &mut Self {
         self.data.nsfw = Some(nsfw);
 
         self
     }
 
-    pub fn voice(mut self, voice: Option<VoiceInformation>) -> Self {
+    pub fn voice(&mut self, voice: Option<VoiceInformation>) -> &mut Self {
         if voice.is_some() {
             self.data.voice = voice
         } else {

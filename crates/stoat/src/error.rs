@@ -28,6 +28,7 @@ pub enum Error {
     NotInDM,
     NotOwner,
     NotNsfw,
+    InvalidTag,
 
     NotAudioTrack,
     NotVideoTrack,

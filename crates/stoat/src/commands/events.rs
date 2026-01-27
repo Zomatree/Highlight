@@ -10,7 +10,10 @@ pub trait CommandEventHandler {
     type State: Debug + Clone + Send + Sync + 'static;
     type Error: From<Error> + Clone + Debug + Send + Sync + 'static;
 
-    async fn get_prefix(&self, context: Context<Self::Error, Self::State>) -> Result<Vec<String>, Self::Error>;
+    async fn get_prefix(
+        &self,
+        context: Context<Self::Error, Self::State>,
+    ) -> Result<Vec<String>, Self::Error>;
 
     async fn command(&self, context: Context<Self::Error, Self::State>) -> Result<(), Self::Error> {
         Ok(())

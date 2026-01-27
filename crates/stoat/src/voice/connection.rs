@@ -139,7 +139,282 @@ impl VoiceConnection {
                             )
                             .await
                         }
-                        event => log::warn!("Unhandled voice event: {event:?}"),
+                        RoomEvent::ParticipantConnected(participant) => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.participant_connected(&conn, participant),
+                            )
+                            .await
+                        }
+                        RoomEvent::ParticipantDisconnected(participant) => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.participant_disconnected(&conn, participant),
+                            )
+                            .await
+                        }
+                        RoomEvent::LocalTrackPublished {
+                            publication,
+                            track,
+                            participant,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.local_track_published(
+                                    &conn,
+                                    publication,
+                                    track,
+                                    participant,
+                                ),
+                            )
+                            .await
+                        }
+                        RoomEvent::LocalTrackUnpublished {
+                            publication,
+                            participant,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.local_track_unpublished(&conn, publication, participant),
+                            )
+                            .await
+                        }
+                        RoomEvent::LocalTrackSubscribed { track } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.local_track_subscribed(&conn, track),
+                            )
+                            .await
+                        }
+                        RoomEvent::TrackSubscribed {
+                            track,
+                            publication,
+                            participant,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.track_subscribed(&conn, track, publication, participant),
+                            )
+                            .await
+                        }
+                        RoomEvent::TrackUnsubscribed {
+                            track,
+                            publication,
+                            participant,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.track_unsubscribed(&conn, track, publication, participant),
+                            )
+                            .await
+                        }
+                        RoomEvent::TrackSubscriptionFailed {
+                            participant,
+                            error,
+                            track_sid,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.track_subscription_failed(
+                                    &conn,
+                                    participant,
+                                    error,
+                                    track_sid,
+                                ),
+                            )
+                            .await
+                        }
+                        RoomEvent::TrackPublished {
+                            publication,
+                            participant,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.track_published(&conn, publication, participant),
+                            )
+                            .await
+                        }
+                        RoomEvent::TrackUnpublished {
+                            publication,
+                            participant,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.track_unpublished(&conn, publication, participant),
+                            )
+                            .await
+                        }
+                        RoomEvent::TrackMuted {
+                            participant,
+                            publication,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.track_muted(&conn, participant, publication),
+                            )
+                            .await
+                        }
+                        RoomEvent::TrackUnmuted {
+                            participant,
+                            publication,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.track_unmuted(&conn, participant, publication),
+                            )
+                            .await
+                        }
+                        RoomEvent::RoomMetadataChanged {
+                            old_metadata,
+                            metadata,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.room_metadata_changed(&conn, old_metadata, metadata),
+                            )
+                            .await
+                        }
+                        RoomEvent::ParticipantMetadataChanged {
+                            participant,
+                            old_metadata,
+                            metadata,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.participant_metadata_changed(
+                                    &conn,
+                                    participant,
+                                    old_metadata,
+                                    metadata,
+                                ),
+                            )
+                            .await
+                        }
+                        RoomEvent::ParticipantNameChanged {
+                            participant,
+                            old_name,
+                            name,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.participant_name_changed(&conn, participant, old_name, name),
+                            )
+                            .await
+                        }
+                        RoomEvent::ParticipantAttributesChanged {
+                            participant,
+                            changed_attributes,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.participant_attributes_changed(
+                                    &conn,
+                                    participant,
+                                    changed_attributes,
+                                ),
+                            )
+                            .await
+                        }
+                        RoomEvent::ParticipantEncryptionStatusChanged {
+                            participant,
+                            is_encrypted,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.participant_encryption_status_changed(
+                                    &conn,
+                                    participant,
+                                    is_encrypted,
+                                ),
+                            )
+                            .await
+                        }
+                        RoomEvent::ActiveSpeakersChanged { speakers } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.active_speakers_changed(&conn, speakers),
+                            )
+                            .await
+                        }
+                        RoomEvent::ConnectionQualityChanged {
+                            quality,
+                            participant,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.connection_quality_changed(&conn, quality, participant),
+                            )
+                            .await
+                        }
+                        RoomEvent::DataReceived {
+                            payload,
+                            topic,
+                            kind,
+                            participant,
+                        } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.data_received(&conn, payload, topic, kind, participant),
+                            )
+                            .await
+                        }
+                        RoomEvent::E2eeStateChanged { participant, state } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.e2ee_state_changed(&conn, participant, state),
+                            )
+                            .await
+                        }
+                        RoomEvent::ConnectionStateChanged(connection_state) => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.connection_state_changed(&conn, connection_state),
+                            )
+                            .await
+                        }
+                        RoomEvent::Disconnected { reason } => {
+                            handle_error(&conn, &events, events.disconnected(&conn, reason)).await
+                        }
+                        RoomEvent::Reconnecting => {
+                            handle_error(&conn, &events, events.reconnecting(&conn)).await
+                        }
+                        RoomEvent::Reconnected => {
+                            handle_error(&conn, &events, events.reconnected(&conn)).await
+                        }
+                        RoomEvent::RoomUpdated { room } => {
+                            handle_error(&conn, &events, events.room_updated(&conn, room)).await
+                        }
+                        RoomEvent::ParticipantsUpdated { participants } => {
+                            handle_error(
+                                &conn,
+                                &events,
+                                events.participants_updated(&conn, participants),
+                            )
+                            .await
+                        }
+                        event => log::debug!("Unhandled voice event: {event:?}"),
                     };
                 }
 

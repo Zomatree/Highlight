@@ -20,19 +20,19 @@ impl CreateChannelBuilder {
         }
     }
 
-    pub fn description(mut self, description: String) -> Self {
+    pub fn description(&mut self, description: String) -> &mut Self {
         self.data.description = Some(description);
 
         self
     }
 
-    pub fn nsfw(mut self, nsfw: bool) -> Self {
+    pub fn nsfw(&mut self, nsfw: bool) -> &mut Self {
         self.data.nsfw = Some(nsfw);
 
         self
     }
 
-    pub fn voice(mut self, voice: VoiceInformation) -> Self {
+    pub fn voice(&mut self, voice: VoiceInformation) -> &mut Self {
         self.data.voice = Some(voice);
 
         self

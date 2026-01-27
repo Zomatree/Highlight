@@ -33,43 +33,43 @@ impl FetchMessagesBuilder {
         }
     }
 
-    pub fn limit(mut self, limit: i64) -> Self {
+    pub fn limit(&mut self, limit: i64) -> &mut Self {
         self.data.limit = Some(limit);
 
         self
     }
 
-    pub fn before(mut self, before: String) -> Self {
+    pub fn before(&mut self, before: String) -> &mut Self {
         self.data.before = Some(before);
 
         self
     }
 
-    pub fn after(mut self, after: String) -> Self {
+    pub fn after(&mut self, after: String) -> &mut Self {
         self.data.after = Some(after);
 
         self
     }
 
-    pub fn sort(mut self, sort: MessageSort) -> Self {
+    pub fn sort(&mut self, sort: MessageSort) -> &mut Self {
         self.data.sort = Some(sort);
 
         self
     }
 
-    pub fn nearby(mut self, nearby: String) -> Self {
+    pub fn nearby(&mut self, nearby: String) -> &mut Self {
         self.data.nearby = Some(nearby);
 
         self
     }
 
-    pub async fn build_raw(mut self, with_users: bool) -> Result<BulkMessageResponse, Error> {
+    pub async fn build_raw(&mut self, with_users: bool) -> Result<BulkMessageResponse, Error> {
         self.data.include_users = Some(with_users);
 
         self.http.fetch_messages(&self.channel_id, &self.data).await
     }
 
-    pub async fn build_with_users(self) -> Result<MessagesWithUsers, Error> {
+    pub async fn build_with_users(&mut self) -> Result<MessagesWithUsers, Error> {
         let bulk = self.build_raw(true).await?;
 
         if let BulkMessageResponse::MessagesAndUsers {
@@ -88,7 +88,7 @@ impl FetchMessagesBuilder {
         }
     }
 
-    pub async fn build(self) -> Result<Vec<Message>, Error> {
+    pub async fn build(&mut self) -> Result<Vec<Message>, Error> {
         let bulk = self.build_raw(false).await?;
 
         if let BulkMessageResponse::JustMessages(messages) = bulk {

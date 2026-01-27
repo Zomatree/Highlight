@@ -7,8 +7,8 @@ use stoat_permissions::{
 };
 
 use crate::{
-    Context as MessageContext, Error, GlobalCache, HttpClient,
-    commands::{Command, Words, handler::Commands},
+    Context as MessageContext, Error, GlobalCache, HttpClient, UserExt,
+    commands::{Command, HelpCommand, Words, handler::Commands},
     context::Events,
     notifiers::Notifiers,
     permissions::user_permissions_query,
@@ -17,7 +17,10 @@ use crate::{
 type SendSyncMap = TypeMap![Send + Sync];
 
 #[derive(Debug, Clone)]
-pub struct Context<E, S> {
+pub struct Context<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> {
     pub(crate) inner: MessageContext,
     pub prefix: Option<String>,
     pub command: Option<Command<E, S>>,
@@ -25,10 +28,15 @@ pub struct Context<E, S> {
     pub state: S,
     pub words: Words,
     pub commands: Commands<E, S>,
+    pub help_command: Arc<dyn HelpCommand<E, S>>,
     pub(crate) local_state: Arc<SendSyncMap>,
 }
 
-impl<E, S> Context<E, S> {
+impl<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> Context<E, S>
+{
     pub fn local_cache<F: FnOnce() -> T, T: Send + Sync + 'static>(&self, f: F) -> &T {
         self.local_state.try_get().unwrap_or_else(|| {
             self.local_state.set(f());
@@ -185,9 +193,26 @@ impl<E, S> Context<E, S> {
         .await
         .0
     }
+
+    pub fn clean_prefix(&self) -> String {
+        let Some(ref prefix) = self.prefix else {
+            return String::new();
+        };
+
+        let user = self.cache.get_current_user().unwrap();
+
+        prefix.replace(
+            &format!("<@{}>", &user.id),
+            &user.name().replace("\\", "\\\\"),
+        )
+    }
 }
 
-impl<E, S> Deref for Context<E, S> {
+impl<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> Deref for Context<E, S>
+{
     type Target = MessageContext;
 
     fn deref(&self) -> &Self::Target {
@@ -195,25 +220,41 @@ impl<E, S> Deref for Context<E, S> {
     }
 }
 
-impl<E, S> AsRef<GlobalCache> for Context<E, S> {
+impl<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> AsRef<GlobalCache> for Context<E, S>
+{
     fn as_ref(&self) -> &GlobalCache {
         &self.cache
     }
 }
 
-impl<E, S> AsRef<HttpClient> for Context<E, S> {
+impl<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> AsRef<HttpClient> for Context<E, S>
+{
     fn as_ref(&self) -> &HttpClient {
         &self.http
     }
 }
 
-impl<E, S> AsRef<Notifiers> for Context<E, S> {
+impl<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> AsRef<Notifiers> for Context<E, S>
+{
     fn as_ref(&self) -> &Notifiers {
         &self.notifiers
     }
 }
 
-impl<E, S> AsRef<Events> for Context<E, S> {
+impl<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> AsRef<Events> for Context<E, S>
+{
     fn as_ref(&self) -> &Events {
         &self.events
     }

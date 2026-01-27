@@ -1,7 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 pub use stoat_models::v0::*;
-pub use stoat_permissions::{ChannelPermission, PermissionValue, UserPermission, Override, OverrideField, DataPermissionsValue};
+pub use stoat_permissions::{
+    ChannelPermission, DataPermissionsValue, Override, OverrideField, PermissionValue,
+    UserPermission,
+};
+
+use crate::Error;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct CaptchaFeature {
@@ -66,4 +71,54 @@ pub struct AutumnResponse {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct RatelimitFailure {
     pub retry_after: u128,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename = "lowercase")]
+pub enum Tag {
+    Attachments,
+    Avatars,
+    Backgrounds,
+    Icons,
+    Banners,
+    Emojis,
+}
+
+impl Tag {
+    pub fn as_str(self) -> &'static str {
+        self.into()
+    }
+
+    pub fn to_string(self) -> String {
+        self.as_str().to_string()
+    }
+}
+
+impl Into<&'static str> for Tag {
+    fn into(self) -> &'static str {
+        match self {
+            Tag::Attachments => "attachments",
+            Tag::Avatars => "avatars",
+            Tag::Backgrounds => "backgrounds",
+            Tag::Icons => "icons",
+            Tag::Banners => "banners",
+            Tag::Emojis => "emojis",
+        }
+    }
+}
+
+impl TryFrom<&str> for Tag {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "attachments" => Ok(Tag::Attachments),
+            "avatars" => Ok(Tag::Avatars),
+            "backgrounds" => Ok(Tag::Backgrounds),
+            "icons" => Ok(Tag::Icons),
+            "banners" => Ok(Tag::Banners),
+            "emojis" => Ok(Tag::Emojis),
+            _ => Err(Error::InvalidTag),
+        }
+    }
 }
