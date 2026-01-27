@@ -10,10 +10,10 @@ default = []
 
 [dependencies]
 # Stoat
-stoat-models = { package = "revolt-models", git = "https://github.com/stoatchat/stoatchat", tag = "v0.9.4", default-features = false, features = ["partials"] }
-stoat-database = { package = "revolt-database", git = "https://github.com/stoatchat/stoatchat", tag = "v0.9.4", default-features = false, features = ["async-std-runtime"] }
-stoat-permissions = { package = "revolt-permissions", git = "https://github.com/stoatchat/stoatchat", tag = "v0.9.4" }
-stoat-result = { package = "revolt-result", git = "https://github.com/stoatchat/stoatchat", tag = "v0.9.4" }
+stoat-models = { package = "revolt-models", version = "0.9.4", default-features = false, features = ["partials"] }
+stoat-database = { package = "revolt-database", version = "0.9.4", default-features = false, features = ["async-std-runtime"] }
+stoat-permissions = { package = "revolt-permissions", version = "0.9.4" }
+stoat-result = { package = "revolt-result", version = "0.9.4" }
 
 # HTTP
 tokio-tungstenite = { version = "0.27", features = ["native-tls"] }
