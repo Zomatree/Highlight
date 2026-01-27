@@ -2,6 +2,12 @@
 name = "stoat-rs"
 version = "0.1.0"
 edition = "2024"
+authors = ["Zomatree <me@zomatree.live>"]
+license = "Apache-2.0"
+description = "Stoat API Wrapper"
+homepage = "https://github.com/zomatree/rust-stoat-sdk"
+repository = "https://github.com/zomatree/rust-stoat-sdk"
+readme = "README.md"
 
 [lib]
 name = "stoat"

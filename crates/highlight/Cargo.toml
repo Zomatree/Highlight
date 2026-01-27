@@ -2,6 +2,12 @@
 name = "highlight"
 version = "0.1.0"
 edition = "2024"
+authors = ["Zomatree <me@zomatree.live>"]
+license = "AGPL-3.0-or-later"
+description = "Stoat Highlight bot"
+homepage = "https://github.com/zomatree/highlight"
+repository = "https://github.com/zomatree/highlight"
+readme = "README.md"
 
 [dependencies]
 stoat-rs = { path = "../stoat" }
