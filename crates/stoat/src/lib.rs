@@ -1,3 +1,7 @@
+//! Stoat API Wrapper
+
+#![doc(html_root_url = "https://docs.rs/stoat-rs/")]
+
 pub mod builders;
 pub mod cache;
 pub mod client;

@@ -9,6 +9,7 @@ use stoat_models::v0::{
 
 use crate::types::{StoatConfig, VoiceNode};
 
+/// Holds all local state.
 #[derive(Debug, Clone)]
 pub struct GlobalCache {
     pub api_config: Arc<StoatConfig>,

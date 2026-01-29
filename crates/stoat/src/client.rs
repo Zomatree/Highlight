@@ -17,6 +17,46 @@ use crate::{
     websocket::run,
 };
 
+/// # Stoat Client
+///
+/// Entrypoint for connecting to the Stoat API.
+///
+/// Create a client via [`Self::new`] or [`Self::new_with_api_url`] if you are connecting to a 3rd party instance.
+/// Clients require an implementation of [`EventHandler`] which contains all the event methods.
+///
+/// ## Example
+///
+/// While it may seem like setting up a client requires a lot, the boilerplate required here pays off in larger projects ensuring everything works smoothly together.
+/// ```
+/// #[derive(Debug, Clone)]
+/// pub enum Error {
+///     StoatError(stoat::Error),
+/// }
+///
+/// impl From<stoat::Error> for Error {
+///     fn from(value: stoat::Error) -> Self {
+///         Self::StoatError(value)
+///     }
+/// }
+///
+/// #[derive(Clone)]
+/// struct Events;
+///
+/// #[async_trait]
+/// impl EventHandler for Events {
+///     type Error = Error;
+///
+///     async fn ready(&self, _context: Context) -> Result<(), Self::Error> {
+///         println!("Ready!");
+///         Ok(())
+///     }
+/// }
+///
+/// #[tokio::main]
+/// async fn main() -> Result<(), Error> {
+///     Client::new(Events).await?.run("TOKEN HERE").await
+/// }
+/// ```
 #[derive(Clone)]
 pub struct Client<H> {
     pub state: GlobalCache,
@@ -27,10 +67,13 @@ pub struct Client<H> {
 }
 
 impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
+    /// Constructs a client with the official instance.
+    /// Use [`Self::new_with_api_url`] to customise the Stoat instance.
     pub async fn new(handler: H) -> Result<Self, H::Error> {
         Self::new_with_api_url(handler, "https://api.stoat.chat").await
     }
 
+    /// Constructs a client with a custom Stoat instance.
     pub async fn new_with_api_url(
         handler: H,
         base_url: impl Into<String>,
@@ -46,6 +89,9 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
         })
     }
 
+    /// Connects to the api and sets the current user.
+    ///
+    /// You will usually not need to call this directly as [`Self::run`] handles this.
     pub async fn start(&mut self, token: impl Into<String>) -> Result<(), H::Error> {
         let token = token.into();
 
@@ -55,6 +101,9 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
         Ok(())
     }
 
+    /// Connects and starts the bot, this connects to the websocket to receive events, this is the main entry point for starting the bot.
+    ///
+    /// Reconnects are handled automatically.
     pub async fn run(&mut self, token: impl Into<String>) -> Result<(), H::Error> {
         let token = token.into();
 
@@ -111,6 +160,7 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
         res
     }
 
+    /// Clears the internal cache.
     pub async fn cleanup(&mut self) {
         self.state.cleanup().await;
         self.waiters.clear_all_waiters().await;
@@ -127,6 +177,9 @@ impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
         }
     }
 
+    /// Handles a Stoat event with updating the local state, invoking notifiers and calling the event callbacks.
+    ///
+    /// You shouldn't need to call this yourself unless your mocking events or debugging.
     pub async fn handle_event(&self, event: EventV1) {
         let wrapper = AssertUnwindSafe(async {
             let context = Context {

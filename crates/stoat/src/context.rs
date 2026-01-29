@@ -32,6 +32,10 @@ impl Events {
     }
 }
 
+
+/// Contains information from the client.
+///
+/// This struct is cheaply cloneable using [`Arc`] internally.
 #[derive(Debug, Clone)]
 pub struct Context {
     pub cache: GlobalCache,

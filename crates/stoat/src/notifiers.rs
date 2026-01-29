@@ -25,6 +25,9 @@ type WaiterMap<M> = Arc<Mutex<HashMap<usize, Waiter<M>>>>;
 
 macro_rules! generate_notifiers {
     ($($event: ident: $event_arg: ty),* $(,)?) => {
+        /// Notifiers allow you to create temporary event collectors, this is useful to for example wait for a user to send a message as a followup.
+        ///
+        /// Every notifier waits for an event which passes its check which is returned or until the timeout is reached, returning [`Error::Timeout`]
         #[derive(Default, Debug, Clone)]
         pub struct Notifiers {
             $($event: WaiterMap<$event_arg>),*
