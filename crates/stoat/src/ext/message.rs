@@ -1,9 +1,6 @@
-use std::time::SystemTime;
-
 use crate::{
     HttpClient, Identifiable, Result,
     builders::{EditMessageBuilder, SendMessageBuilder},
-    created_at,
     types::StoatConfig,
 };
 use async_trait::async_trait;
@@ -144,7 +141,7 @@ impl MessageExt for Message {
 }
 
 impl Identifiable for Message {
-    fn created_at(&self) -> SystemTime {
-        created_at(&self.id)
+    fn id(&self) -> &str {
+        &self.id
     }
 }

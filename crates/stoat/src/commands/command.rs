@@ -130,6 +130,10 @@ impl<
 
         Ok(true)
     }
+
+    pub async fn invoke(&self, context: Context<E, S>) -> Result<(), E> {
+        (self.handle).handle(context).await
+    }
 }
 
 #[async_trait]

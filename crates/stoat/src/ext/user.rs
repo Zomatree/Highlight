@@ -1,17 +1,13 @@
-use std::time::SystemTime;
-
 use async_trait::async_trait;
 use bytes::Bytes;
 use stoat_models::v0::{
     DataEditUser, FlagResponse, MutualResponse, User, UserProfile, UserVoiceState,
 };
 
-use crate::{
-    GlobalCache, HttpClient, Identifiable, Result, builders::SendMessageBuilder, created_at,
-};
+use crate::{FileExt, GlobalCache, HttpClient, Identifiable, Result, builders::SendMessageBuilder};
 
 #[async_trait]
-pub trait UserExt {
+pub trait UserExt: Identifiable {
     fn mention(&self) -> String;
     fn name(&self) -> &str;
 
@@ -27,6 +23,9 @@ pub trait UserExt {
     async fn fetch_flags(&self, http: impl AsRef<HttpClient> + Send) -> Result<FlagResponse>;
     async fn fetch_mutuals(&self, http: impl AsRef<HttpClient> + Send) -> Result<MutualResponse>;
     async fn fetch_default_avatar(&self, http: impl AsRef<HttpClient> + Send) -> Result<Bytes>;
+
+    fn avatar_url(&self, http: impl AsRef<HttpClient> + Send) -> String;
+    fn default_avatar_url(&self, http: impl AsRef<HttpClient> + Send) -> String;
 }
 
 #[async_trait]
@@ -97,10 +96,21 @@ impl UserExt for User {
     async fn fetch_default_avatar(&self, http: impl AsRef<HttpClient> + Send) -> Result<Bytes> {
         http.as_ref().fetch_default_avatar(&self.id).await
     }
+
+    fn avatar_url(&self, http: impl AsRef<HttpClient> + Send) -> String {
+        self.avatar
+            .as_ref()
+            .map(|file| file.url(http.as_ref(), false))
+            .unwrap_or_else(|| self.default_avatar_url(http.as_ref()))
+    }
+
+    fn default_avatar_url(&self, http: impl AsRef<HttpClient> + Send) -> String {
+        format!("{}/users/{}/default_avatar", &http.as_ref().base, &self.id)
+    }
 }
 
 impl Identifiable for User {
-    fn created_at(&self) -> SystemTime {
-        created_at(&self.id)
+    fn id(&self) -> &str {
+        &self.id
     }
 }

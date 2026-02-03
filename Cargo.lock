@@ -1960,6 +1960,8 @@ name = "highlight"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "humantime 2.3.0",
+ "iso8601-timestamp",
  "log",
  "lru 0.16.2",
  "pretty_env_logger 0.5.0",

@@ -1,14 +1,17 @@
 use std::time::Duration;
 
 use stoat::{
-    ChannelExt, async_trait,
+    Error as StoatError, async_trait,
     commands::{Command, CommandEventHandler, Context, when_mentioned_or},
+    error::{StoatHttpError, StoatHttpErrorType},
 };
 
 use crate::{Error, State, utils::MessageExt};
 
 mod highlight;
 mod info;
+mod moderation;
+mod starboard;
 
 #[derive(Clone)]
 pub struct CommandEvents;
@@ -19,7 +22,10 @@ impl CommandEventHandler for CommandEvents {
     type State = State;
 
     async fn get_prefix(&self, ctx: Context<Error, State>) -> Result<Vec<String>, Error> {
-        Ok(when_mentioned_or(&ctx, &[ctx.state.config.bot.prefix.clone()]))
+        Ok(when_mentioned_or(
+            &ctx,
+            &[ctx.state.config.bot.prefix.clone()],
+        ))
     }
 
     async fn after_command(&self, ctx: Context<Error, State>) -> Result<(), Error> {
@@ -35,16 +41,22 @@ impl CommandEventHandler for CommandEvents {
     }
 
     async fn error(&self, ctx: Context<Error, State>, error: Error) -> Result<(), Error> {
-        match error {
-            Error::StoatError(stoat::Error::NotInServer) => {
-                ctx.get_current_channel()?
-                    .send(&ctx)
-                    .content("This command can only be used in a server".to_string())
-                    .build()
-                    .await?;
+        let msg = match error {
+            Error::StoatError(StoatError::NotInServer) => {
+                "This command can only be used in a server".to_string()
             }
-            error => log::error!("{error:?}"),
+            Error::StoatError(StoatError::MissingParameter) => "Missing parameter".to_string(),
+            Error::StoatError(StoatError::HttpError(StoatHttpError {
+                error_type: StoatHttpErrorType::MissingPermission { permission },
+                ..
+            })) => format!("Bot is missing permission `{permission}`."),
+            _ => {
+                log::error!("{error:?}");
+                return Ok(());
+            }
         };
+
+        ctx.send().content(msg).build().await?;
 
         Ok(())
     }
@@ -246,12 +258,9 @@ impl CommandEventHandler for CommandEvents {
 // }
 
 pub fn commands() -> Vec<Command<Error, State>> {
-    vec![
-        highlight::command(),
-        info::command(),
-        // Command::new("play", play).description("audio"),
-        // Command::new("close", close)
-        //     .description("Turns off the bot")
-        //     .check(is_owner),
+    [
+        vec![highlight::command(), info::command(), starboard::command()].as_slice(),
+        moderation::commands().as_slice(),
     ]
+    .concat()
 }

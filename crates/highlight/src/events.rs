@@ -1,11 +1,15 @@
 use std::{borrow::Cow, time::Duration};
 
 use stoat::{
-    ChannelExt, Context, EventHandler, MessageExt, async_trait,
+    ChannelExt, Context, EmbedExt, EventHandler, InteractionsExt, MessageExt, StoatExt, UserExt,
+    async_trait,
     builders::{FetchMessagesBuilder, SendMessageBuilder},
     commands::CommandHandler,
     permissions::{ChannelPermission, calculate_channel_permissions, user_permissions_query},
-    types::{DataEditUser, Member, Message, RemovalIntention, SendableEmbed, UserStatus},
+    types::{
+        DataEditUser, EventV1, Interactions, Member, Message, RemovalIntention, SendableEmbed,
+        UserStatus,
+    },
 };
 
 use crate::{Error, State, commands::CommandEvents};
@@ -27,13 +31,23 @@ impl EventHandler for Events {
 
         tokio::spawn({
             let commands = self.commands.clone();
-            let context = ctx.clone();
+            let ctx = ctx.clone();
             let message = message.clone();
 
-            async move { commands.process_commands(context, message).await }
+            async move { commands.process_commands(ctx, message).await }
         });
 
         if !message.content.is_some() {
+            return Ok(());
+        };
+
+        if message.content.as_ref()
+            == Some(&format!("<@{}>", ctx.cache.get_current_user_id().unwrap()))
+        {
+            let mut message = message.clone();
+            message.content.as_mut().unwrap().push_str(" help");
+            self.commands.process_commands(ctx, message).await?;
+
             return Ok(());
         };
 
@@ -273,6 +287,202 @@ impl EventHandler for Events {
         Ok(())
     }
 
+    async fn event(&self, ctx: Context, event: EventV1) -> Result<(), Self::Error> {
+        match event {
+            EventV1::MessageReact {
+                id: message_id,
+                channel_id,
+                user_id: _,
+                emoji_id,
+            } => {
+                if emoji_id != "⭐" {
+                    return Ok(());
+                };
+
+                let channel = ctx.cache.get_channel(&channel_id).unwrap();
+
+                let Some(server_id) = channel.server() else {
+                    return Ok(());
+                };
+                let config = self.state.fetch_server_config(&server_id).await?;
+
+                let Some(starboard_channel_id) = &config.starboard_channel else {
+                    return Ok(());
+                };
+
+                let (original_message, starboard_message) = if &channel_id == starboard_channel_id {
+                    let original_message = self
+                        .state
+                        .get_starboard_original_message(&message_id)
+                        .await?;
+
+                    (
+                        ctx.http
+                            .fetch_message(&original_message.channel, &original_message.id)
+                            .await?,
+                        Some(
+                            ctx.http
+                                .fetch_message(&starboard_channel_id, &message_id)
+                                .await?,
+                        ),
+                    )
+                } else {
+                    (
+                        ctx.http.fetch_message(&channel_id, &message_id).await?,
+                        if let Some(starboard_message_id) =
+                            self.state.get_starboard_message(&message_id).await?
+                        {
+                            Some(
+                                ctx.http
+                                    .fetch_message(&starboard_channel_id, &starboard_message_id)
+                                    .await?,
+                            )
+                        } else {
+                            None
+                        },
+                    )
+                };
+
+                let star_count = get_star_count(&original_message, starboard_message.as_ref());
+
+                if let Some(starboard_message) = &starboard_message {
+                    self.state
+                        .update_starboard_message_star_count(&starboard_message.id, star_count)
+                        .await?;
+
+                    let content = starboard_message.content.clone().unwrap();
+                    let mut parts = content.split(' ').collect::<Vec<_>>();
+                    let star_count = star_count.to_string();
+                    parts[1] = &star_count;
+
+                    starboard_message
+                        .edit(&ctx)
+                        .content(parts.join(" "))
+                        .build()
+                        .await?;
+                } else if star_count >= config.star_count {
+                    let content = format!(
+                        "⭐ {} {} ID: {}",
+                        star_count,
+                        channel.mention(),
+                        channel.id()
+                    );
+
+                    let author = ctx.fetch_user(&original_message.author).await?;
+
+                    let starboard_message =
+                        SendMessageBuilder::new(ctx.http.clone(), starboard_channel_id.clone())
+                            .content(content)
+                            .embed(
+                                SendableEmbed::default()
+                                    .icon_url(author.avatar_url(&ctx))
+                                    .title(author.name().to_string())
+                                    .description(format!(
+                                        "{}\n\nOriginal: [Jump!]({})",
+                                        original_message.content.clone().unwrap_or_default(),
+                                        original_message.jump_link(&ctx)
+                                    ))
+                                    .colour("#FFC71E".to_string()),
+                            )
+                            .interactions(Interactions::default().reactions(["⭐".to_string()]))
+                            .build()
+                            .await?;
+
+                    self.state
+                        .add_starboard_message(
+                            &starboard_message.id,
+                            &original_message.id,
+                            &original_message.author,
+                            &original_message.channel,
+                            &server_id,
+                            star_count,
+                        )
+                        .await?;
+                }
+            }
+            EventV1::MessageUnreact {
+                id: message_id,
+                channel_id,
+                user_id: _,
+                emoji_id,
+            } => {
+                if emoji_id != "⭐" {
+                    return Ok(());
+                };
+
+                let channel = ctx.cache.get_channel(&channel_id).unwrap();
+
+                let Some(server_id) = channel.server() else {
+                    return Ok(());
+                };
+                let config = self.state.fetch_server_config(&server_id).await?;
+
+                let Some(starboard_channel_id) = &config.starboard_channel else {
+                    return Ok(());
+                };
+
+                let (original_message, starboard_message) = if &channel_id == starboard_channel_id {
+                    let original_message = self
+                        .state
+                        .get_starboard_original_message(&message_id)
+                        .await?;
+
+                    (
+                        ctx.http
+                            .fetch_message(&original_message.channel, &original_message.id)
+                            .await?,
+                        Some(
+                            ctx.http
+                                .fetch_message(&starboard_channel_id, &message_id)
+                                .await?,
+                        ),
+                    )
+                } else {
+                    (
+                        ctx.http.fetch_message(&channel_id, &message_id).await?,
+                        if let Some(starboard_message_id) =
+                            self.state.get_starboard_message(&message_id).await?
+                        {
+                            Some(
+                                ctx.http
+                                    .fetch_message(&starboard_channel_id, &starboard_message_id)
+                                    .await?,
+                            )
+                        } else {
+                            None
+                        },
+                    )
+                };
+
+                if let Some(starboard_message) = starboard_message {
+                    let star_count = get_star_count(&original_message, Some(&starboard_message));
+
+                    if star_count < config.star_count {
+                        starboard_message.delete(&ctx).await?;
+
+                        self.state
+                            .remove_starboard_message(&starboard_message.id)
+                            .await?;
+                    } else {
+                        let content = starboard_message.content.clone().unwrap();
+                        let mut parts = content.split(' ').collect::<Vec<_>>();
+                        let star_count = star_count.to_string();
+                        parts[1] = &star_count;
+
+                        starboard_message
+                            .edit(&ctx)
+                            .content(parts.join(" "))
+                            .build()
+                            .await?;
+                    }
+                }
+            }
+            _ => {}
+        };
+
+        Ok(())
+    }
+
     async fn ready(&self, ctx: Context) -> Result<(), Error> {
         log::info!("Ready!");
 
@@ -296,4 +506,16 @@ impl EventHandler for Events {
 
         Ok(())
     }
+}
+
+fn get_star_count(original: &Message, starboard: Option<&Message>) -> i32 {
+    let mut users = original.reactions.get("⭐").cloned().unwrap_or_default();
+
+    if let Some(starboard) = starboard {
+        for user in starboard.reactions.get("⭐").cloned().unwrap_or_default() {
+            users.insert(user);
+        }
+    };
+
+    (users.len() - users.contains(&original.author) as usize) as i32
 }

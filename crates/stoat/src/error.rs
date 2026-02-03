@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use stoat_permissions::ChannelPermission;
-pub use stoat_result::Error as StoatHttpError;
+pub use stoat_result::{Error as StoatHttpError, ErrorType as StoatHttpErrorType};
 
 use crate::types::RatelimitFailure;
 
@@ -29,6 +29,7 @@ pub enum Error {
     NotOwner,
     NotNsfw,
     InvalidTag,
+    MalformedID,
 
     NotAudioTrack,
     NotVideoTrack,

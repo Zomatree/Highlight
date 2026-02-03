@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use stoat_models::v0::{DataSetServerRolePermission, Role};
 use stoat_permissions::Override;
 
-use crate::{Error, HttpClient, Result, builders::EditRoleBuilder};
+use crate::{Error, HttpClient, Identifiable, Result, builders::EditRoleBuilder};
 
 #[async_trait]
-pub trait RoleExt {
+pub trait RoleExt: Identifiable {
     async fn edit(&self, http: impl AsRef<HttpClient> + Send, server_id: String)
     -> EditRoleBuilder;
     async fn delete(&self, http: impl AsRef<HttpClient> + Send, server_id: &str) -> Result<()>;
@@ -53,5 +53,11 @@ impl RoleExt for Role {
             .await?;
 
         server.roles.remove(&self.id).ok_or(Error::InternalError)
+    }
+}
+
+impl Identifiable for Role {
+    fn id(&self) -> &str {
+        &self.id
     }
 }

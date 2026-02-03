@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+pub use stoat_database::events::{
+    client::{EventV1, Ping},
+    server::ClientMessage,
+};
 pub use stoat_models::v0::*;
 pub use stoat_permissions::{
     ChannelPermission, DataPermissionsValue, Override, OverrideField, PermissionValue,

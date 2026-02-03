@@ -27,4 +27,5 @@ pub struct DatabaseConfig {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LimitsConfig {
     pub max_keywords: usize,
+    pub min_stars: i32,
 }

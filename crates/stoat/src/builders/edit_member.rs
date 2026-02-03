@@ -59,9 +59,9 @@ impl EditMemberBuilder {
         self
     }
 
-    pub fn timeout<T: Into<Timestamp>>(&mut self, timestamp: Option<T>) -> &mut Self {
-        if let Some(timestamp) = timestamp {
-            self.data.timeout = Some(timestamp.into());
+    pub fn timeout<T: Into<Option<Timestamp>>>(&mut self, timestamp: T) -> &mut Self {
+        if let Some(timestamp) = timestamp.into() {
+            self.data.timeout = Some(timestamp);
         } else {
             self.data.remove.push(FieldsMember::Timeout);
         };

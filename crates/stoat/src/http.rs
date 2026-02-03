@@ -266,7 +266,7 @@ impl HttpClient {
             Method::DELETE,
             format!("/channels/{channel_id}/messages/bulk"),
         )
-        .query(options)
+        .body(options)
         .send()
         .await
     }

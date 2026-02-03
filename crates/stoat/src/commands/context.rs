@@ -8,6 +8,7 @@ use stoat_permissions::{
 
 use crate::{
     Context as MessageContext, Error, GlobalCache, HttpClient, UserExt,
+    builders::SendMessageBuilder,
     commands::{Command, HelpCommand, Words, handler::Commands},
     context::Events,
     notifiers::Notifiers,
@@ -205,6 +206,16 @@ impl<
             &format!("<@{}>", &user.id),
             &user.name().replace("\\", "\\\\"),
         )
+    }
+
+    pub fn send(&self) -> SendMessageBuilder {
+        SendMessageBuilder::new(self.http.clone(), self.message.channel.clone())
+    }
+
+    pub fn reply(&self, mention: bool) -> SendMessageBuilder {
+        let mut builder = SendMessageBuilder::new(self.http.clone(), self.message.channel.clone());
+        builder.reply(self.message.id.clone(), mention);
+        builder
     }
 }
 

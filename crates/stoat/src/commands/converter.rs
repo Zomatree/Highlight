@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use regex::Regex;
 use stoat_models::v0::{Channel, Emoji, Member, Role, User};
 
-use crate::{Error, commands::Context};
+use crate::{Error, commands::Context, ulid::Ulid};
 
 static ID_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})$").unwrap());
@@ -92,6 +92,18 @@ impl<
 impl<
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
     S: Debug + Clone + Send + Sync + 'static,
+> Converter<E, S> for Ulid
+{
+    async fn convert(_context: &Context<E, S>, input: String) -> Result<Self, E> {
+        Ulid::from_string(input)
+            .map_err(|_| Error::ConverterError("Bad id value".to_string()).into())
+    }
+}
+
+#[async_trait]
+impl<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
 > Converter<E, S> for User
 {
     async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
@@ -130,7 +142,17 @@ impl<
             if let Some(channel) = context.cache.get_channel(id) {
                 return Ok(channel);
             }
-        };
+        } else if let Some(entry) = context
+            .cache
+            .channels
+            .any_async(|_, channel| match channel {
+                Channel::TextChannel { name, .. } => name == &input,
+                _ => false,
+            })
+            .await
+        {
+            return Ok(entry.get().clone());
+        }
 
         Err(Error::ConverterError("Channel not found".to_string()).into())
     }
@@ -213,22 +235,23 @@ impl<
     }
 }
 
-pub struct ConsumeRest(pub String);
+pub struct ConsumeRest<T>(pub T);
 
 #[async_trait]
 impl<
+    T: Converter<E, S>,
     E: From<Error> + Clone + Debug + Send + Sync + 'static,
     S: Debug + Clone + Send + Sync + 'static,
-> Converter<E, S> for ConsumeRest
+> Converter<E, S> for ConsumeRest<T>
 {
     async fn from_context(context: &Context<E, S>) -> Result<Self, E> {
-        let words = context.words.rest();
+        let words = context.words.rest().join(" ");
 
-        Ok(Self(words.join(" ")))
+        Self::convert(context, words).await
     }
 
-    async fn convert(_context: &Context<E, S>, _input: String) -> Result<Self, E> {
-        unreachable!()
+    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
+        T::convert(context, input).await.map(Self)
     }
 }
 
@@ -262,11 +285,11 @@ impl<
             return Ok(None);
         };
 
-        Ok(T::convert(context, input).await.ok())
+        Self::convert(context, input).await
     }
 
-    async fn convert(_context: &Context<E, S>, _input: String) -> Result<Self, E> {
-        unreachable!()
+    async fn convert(context: &Context<E, S>, input: String) -> Result<Self, E> {
+        Ok(T::convert(context, input).await.ok())
     }
 }
 
@@ -295,7 +318,7 @@ impl<
     }
 
     async fn convert(_context: &Context<E, S>, _input: String) -> Result<Self, E> {
-        unreachable!()
+        unreachable!("Cannot use Greedy inside another converter")
     }
 }
 
@@ -317,6 +340,6 @@ impl<
     }
 
     async fn convert(_context: &Context<E, S>, _input: String) -> Result<Self, E> {
-        unreachable!()
+        unreachable!("Cannot use Vec inside another converter")
     }
 }

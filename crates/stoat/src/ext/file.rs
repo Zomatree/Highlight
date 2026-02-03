@@ -1,13 +1,11 @@
-use std::time::SystemTime;
-
 use async_trait::async_trait;
 use bytes::Bytes;
 use stoat_models::v0::File;
 
-use crate::{HttpClient, Identifiable, Result, created_at};
+use crate::{HttpClient, Identifiable, Result};
 
 #[async_trait]
-pub trait FileExt {
+pub trait FileExt: Identifiable {
     fn url(&self, http: impl AsRef<HttpClient>, preview: bool) -> String;
     async fn bytes(&self, http: impl AsRef<HttpClient> + Send, preview: bool) -> Result<Bytes>;
 }
@@ -31,7 +29,7 @@ impl FileExt for File {
 }
 
 impl Identifiable for File {
-    fn created_at(&self) -> SystemTime {
-        created_at(&self.id)
+    fn id(&self) -> &str {
+        &self.id
     }
 }

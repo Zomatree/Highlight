@@ -1,10 +1,10 @@
-use std::{collections::HashMap, time::SystemTime};
+use std::collections::HashMap;
 
 use crate::{
     HttpClient, Identifiable, Result,
     builders::{EditChannelBuilder, FetchMessagesBuilder, SendMessageBuilder},
     context::Events,
-    created_at, utils,
+    utils,
 };
 use async_trait::async_trait;
 use stoat_models::v0::{
@@ -14,7 +14,7 @@ use stoat_models::v0::{
 use stoat_permissions::{Override, OverrideField};
 
 #[async_trait]
-pub trait ChannelExt {
+pub trait ChannelExt: Identifiable {
     fn user(&self) -> Option<&str>;
     fn active(&self) -> Option<bool>;
     fn recipients(&self) -> Option<&Vec<String>>;
@@ -310,7 +310,7 @@ impl ChannelExt for Channel {
 }
 
 impl Identifiable for Channel {
-    fn created_at(&self) -> SystemTime {
-        created_at(&self.id())
+    fn id(&self) -> &str {
+        Channel::id(&self)
     }
 }

@@ -14,5 +14,5 @@ pub fn create_highlight_regex(keywords: &[String]) -> Result<Regex, Error> {
     RegexBuilder::new(&patten)
         .case_insensitive(true)
         .build()
-        .map_err(|_| Error::InvalidKeyword)
+        .map_err(|_| Error::UserError("Invalid Keyword".to_string()))
 }

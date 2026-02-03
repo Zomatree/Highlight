@@ -16,3 +16,26 @@ create table if not exists blocks (
 );
 
 create index if not exists blocked_user_id on blocks (user_id);
+
+create table if not exists server_configs (
+    server_id text primary key,
+    star_count int not null,
+    starboard_channel text
+);
+
+create table if not exists starboard_messages (
+    starboard_message_id text not null,
+    message_id text not null,
+    user_id text not null,
+    channel_id text not null,
+    server_id text not null,
+    star_count integer not null,
+
+    unique (starboard_message_id),
+    unique (message_id)
+);
+
+create index if not exists starboard_messages_starboard_message_id_index on starboard_messages (starboard_message_id);
+create index if not exists starboard_messages_message_id_index on starboard_messages (message_id);
+create index if not exists starboard_messages_server_id_index on starboard_messages (server_id);
+create index if not exists starboard_messages_user_id_index on starboard_messages (user_id);

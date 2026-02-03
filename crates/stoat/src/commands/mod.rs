@@ -7,8 +7,8 @@ pub mod converter;
 pub mod events;
 pub mod handler;
 pub mod help;
-pub mod words;
 pub mod utils;
+pub mod words;
 
 pub use checks::*;
 pub use command::Command;
@@ -17,5 +17,5 @@ pub use converter::*;
 pub use events::CommandEventHandler;
 pub use handler::CommandHandler;
 pub use help::*;
-pub use words::Words;
 pub use utils::*;
+pub use words::Words;

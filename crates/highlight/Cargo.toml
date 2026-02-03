@@ -10,7 +10,7 @@ repository = "https://github.com/zomatree/highlight"
 readme = "README.md"
 
 [dependencies]
-stoat-rs = { path = "../stoat" }
+stoat-rs = { path = "../stoat", features = ["either"] }
 tokio = { version = "1.48", features = ["full"] }
 futures = "0.3"
 toml = "0.9"
@@ -21,3 +21,5 @@ regex = "1.11"
 ulid = "1.2.1"
 log = "0.4"
 pretty_env_logger = "0.5.0"
+humantime = "2.3.0"
+iso8601-timestamp = "0.2.17"

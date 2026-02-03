@@ -8,18 +8,16 @@ pub fn when_mentioned<
 >(
     context: &Context<E, S>,
 ) -> Vec<String> {
-    vec![
-        format!(
-            "<@{}> ",
-            &context
-                .cache
-                .current_user_id
-                .read()
-                .unwrap()
-                .as_ref()
-                .unwrap()
-        )
-    ]
+    vec![format!(
+        "<@{}> ",
+        &context
+            .cache
+            .current_user_id
+            .read()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+    )]
 }
 
 pub fn when_mentioned_or<
@@ -27,20 +25,18 @@ pub fn when_mentioned_or<
     S: Debug + Clone + Send + Sync + 'static,
 >(
     context: &Context<E, S>,
-    prefixes: &[String]
+    prefixes: &[String],
 ) -> Vec<String> {
-    let mut v = vec![
-        format!(
-            "<@{}> ",
-            &context
-                .cache
-                .current_user_id
-                .read()
-                .unwrap()
-                .as_ref()
-                .unwrap()
-        )
-    ];
+    let mut v = vec![format!(
+        "<@{}> ",
+        &context
+            .cache
+            .current_user_id
+            .read()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+    )];
 
     v.extend_from_slice(prefixes);
     v

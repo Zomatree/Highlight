@@ -11,3 +11,4 @@ url = ""
 
 [limits]
 max_keywords = 10
+min_stars = 3

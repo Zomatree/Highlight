@@ -108,7 +108,13 @@ impl<
             local_state: Arc::new(<TypeMap![Send + Sync]>::new()),
         };
 
-        let prefixes = self.event_handler.get_prefix(cmd_context.clone()).await?;
+        let prefixes = match self.event_handler.get_prefix(cmd_context.clone()).await {
+            Ok(prefixes) => prefixes,
+            Err(e) => {
+                self.event_handler.error(cmd_context.clone(), e).await?;
+                return Ok(());
+            }
+        };
 
         let Some(prefix) = prefixes
             .into_iter()
@@ -214,7 +220,7 @@ impl<
                 match subcommand {
                     Some(sub) => Some(sub),
                     None => {
-                        words.undo();
+                        // words.undo();
 
                         Some(command.clone())
                     }

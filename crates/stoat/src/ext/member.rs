@@ -1,11 +1,7 @@
-use std::time::SystemTime;
-
 use async_trait::async_trait;
 use stoat_models::v0::{DataBanCreate, DataMemberEdit, Member, Role, ServerBan, UserVoiceState};
 
-use crate::{
-    GlobalCache, HttpClient, Identifiable, Result, builders::EditMemberBuilder, created_at,
-};
+use crate::{GlobalCache, HttpClient, Identifiable, Result, builders::EditMemberBuilder};
 
 #[async_trait]
 pub trait MemberExt {
@@ -14,7 +10,7 @@ pub trait MemberExt {
         http: impl AsRef<HttpClient> + Send,
         reason: Option<String>,
     ) -> Result<ServerBan>;
-    async fn edit(&self, http: impl AsRef<HttpClient> + Send) -> EditMemberBuilder;
+    fn edit(&self, http: impl AsRef<HttpClient>) -> EditMemberBuilder;
     async fn kick(&self, http: impl AsRef<HttpClient> + Send) -> Result<()>;
     async fn add_roles(
         &self,
@@ -37,7 +33,7 @@ impl MemberExt for Member {
             .await
     }
 
-    async fn edit(&self, http: impl AsRef<HttpClient> + Send) -> EditMemberBuilder {
+    fn edit(&self, http: impl AsRef<HttpClient>) -> EditMemberBuilder {
         EditMemberBuilder::new(
             http.as_ref().clone(),
             self.id.server.clone(),
@@ -105,7 +101,7 @@ impl MemberExt for Member {
 }
 
 impl Identifiable for Member {
-    fn created_at(&self) -> SystemTime {
-        created_at(&self.id.user)
+    fn id(&self) -> &str {
+        &self.id.user
     }
 }

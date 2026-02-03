@@ -6,6 +6,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     Error, GlobalCache, HttpClient,
     notifiers::Notifiers,
+    types::StoatConfig,
     websocket::{EventMessage, ProgramMessage},
 };
 
@@ -31,7 +32,6 @@ impl Events {
         self.send_message(EventMessage::Program(ProgramMessage::Close))
     }
 }
-
 
 /// Contains information from the client.
 ///
@@ -65,5 +65,11 @@ impl AsRef<Notifiers> for Context {
 impl AsRef<Events> for Context {
     fn as_ref(&self) -> &Events {
         &self.events
+    }
+}
+
+impl AsRef<StoatConfig> for Context {
+    fn as_ref(&self) -> &StoatConfig {
+        &self.http.api_config
     }
 }

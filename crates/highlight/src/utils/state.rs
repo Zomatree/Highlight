@@ -9,7 +9,7 @@ use std::{
 };
 use tokio::sync::RwLock;
 
-use crate::{Config, Error, create_highlight_regex};
+use crate::{Config, Error, OriginalMessage, ServerConfig, create_highlight_regex};
 
 #[derive(Clone, Debug)]
 pub struct State {
@@ -259,5 +259,117 @@ impl State {
             .fetch_one(&self.pool)
             .await
             .map_err(|e| e.into())
+    }
+
+    pub async fn update_server_config_star_count(
+        &self,
+        server_id: &str,
+        star_count: i32,
+    ) -> Result<(), Error> {
+        sqlx::query("insert into server_configs(server_id, star_count) values ($1, $2) on conflict (server_id) do update set star_count=$2")
+            .bind(server_id)
+            .bind(star_count)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn update_server_config_starboard_channel(
+        &self,
+        server_id: &str,
+        starboard_channel: &str,
+    ) -> Result<(), Error> {
+        sqlx::query("insert into server_configs(server_id, star_count, starboard_channel) values ($1, $2, $3) on conflict (server_id) do update set starboard_channel=$2")
+            .bind(server_id)
+            .bind(self.config.limits.min_stars)
+            .bind(starboard_channel)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn fetch_server_config(&self, server_id: &str) -> Result<ServerConfig, Error> {
+        let config = sqlx::query_as(
+            "select star_count, starboard_channel from server_configs where server_id=$1",
+        )
+        .bind(server_id)
+        .fetch_optional(&self.pool)
+        .await?
+        .unwrap_or_else(|| ServerConfig {
+            star_count: self.config.limits.min_stars,
+            starboard_channel: None,
+        });
+
+        Ok(config)
+    }
+
+    pub async fn add_starboard_message(
+        &self,
+        starboard_message_id: &str,
+        message_id: &str,
+        user_id: &str,
+        channel_id: &str,
+        server_id: &str,
+        star_count: i32,
+    ) -> Result<(), Error> {
+        sqlx::query("insert into starboard_messages(starboard_message_id, message_id, user_id, channel_id, server_id, star_count) values ($1, $2, $3, $4, $5, $6)")
+            .bind(starboard_message_id)
+            .bind(message_id)
+            .bind(user_id)
+            .bind(channel_id)
+            .bind(server_id)
+            .bind(star_count)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn update_starboard_message_star_count(
+        &self,
+        starboard_message_id: &str,
+        star_count: i32,
+    ) -> Result<(), Error> {
+        sqlx::query("update starboard_messages set star_count=$1 where starboard_channel_id=$2")
+            .bind(starboard_message_id)
+            .bind(star_count)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn remove_starboard_message(&self, starboard_message_id: &str) -> Result<(), Error> {
+        sqlx::query("delete from starboard_messages where starboard_message=$1")
+            .bind(starboard_message_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_starboard_original_message(
+        &self,
+        starboard_message_id: &str,
+    ) -> Result<OriginalMessage, Error> {
+        let original_message = sqlx::query_as("select original_message, original_message_channel from starboard_messages where starboard_message=$1")
+            .bind(starboard_message_id)
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(original_message)
+    }
+
+    pub async fn get_starboard_message(&self, message_id: &str) -> Result<Option<String>, Error> {
+        let message_id = sqlx::query_scalar(
+            "select starboard_message from starboard_messages where original_message=$1",
+        )
+        .bind(message_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(message_id)
     }
 }

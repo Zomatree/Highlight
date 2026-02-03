@@ -1,5 +1,3 @@
-use std::time::SystemTime;
-
 use async_trait::async_trait;
 use stoat_models::v0::{
     BanListResult, Channel, DataCreateRole, DataCreateServerChannel, DataEditRoleRanks, Emoji,
@@ -7,7 +5,7 @@ use stoat_models::v0::{
 };
 use stoat_permissions::DataPermissionsValue;
 
-use crate::{HttpClient, Identifiable, Result, builders::EditServerBuilder, created_at};
+use crate::{HttpClient, Identifiable, Result, builders::EditServerBuilder};
 
 #[async_trait]
 pub trait ServerExt {
@@ -142,7 +140,7 @@ impl ServerExt for Server {
 }
 
 impl Identifiable for Server {
-    fn created_at(&self) -> SystemTime {
-        created_at(&self.id)
+    fn id(&self) -> &str {
+        &self.id
     }
 }

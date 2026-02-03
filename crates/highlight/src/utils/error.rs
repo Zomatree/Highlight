@@ -4,7 +4,7 @@ use std::sync::Arc;
 pub enum Error {
     StoatError(stoat::Error),
     PgError(Arc<sqlx::Error>),
-    InvalidKeyword,
+    UserError(String),
 }
 
 impl From<stoat::Error> for Error {
