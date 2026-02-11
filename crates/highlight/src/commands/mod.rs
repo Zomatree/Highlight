@@ -12,6 +12,7 @@ mod highlight;
 mod info;
 mod moderation;
 mod starboard;
+mod stats;
 
 #[derive(Clone)]
 pub struct CommandEvents;
@@ -22,10 +23,7 @@ impl CommandEventHandler for CommandEvents {
     type State = State;
 
     async fn get_prefix(&self, ctx: Context<Error, State>) -> Result<Vec<String>, Error> {
-        Ok(when_mentioned_or(
-            &ctx,
-            &[ctx.state.config.bot.prefix.clone()],
-        ))
+        Ok(when_mentioned_or(&ctx, &ctx.state.config.bot.prefix))
     }
 
     async fn after_command(&self, ctx: Context<Error, State>) -> Result<(), Error> {
@@ -46,10 +44,24 @@ impl CommandEventHandler for CommandEvents {
                 "This command can only be used in a server".to_string()
             }
             Error::StoatError(StoatError::MissingParameter) => "Missing parameter".to_string(),
-            Error::StoatError(StoatError::HttpError(StoatHttpError {
-                error_type: StoatHttpErrorType::MissingPermission { permission },
-                ..
-            })) => format!("Bot is missing permission `{permission}`."),
+            Error::StoatError(StoatError::ConverterError(msg)) => msg,
+            Error::StoatError(StoatError::MissingChannelPermission { permissions }) => {
+                format!("Missing `{permissions}` permission.")
+            }
+            Error::StoatError(StoatError::HttpError(StoatHttpError { error_type, .. })) => {
+                match error_type {
+                    StoatHttpErrorType::MissingPermission { permission } => {
+                        format!("Bot is missing permission `{permission}`.")
+                    }
+                    StoatHttpErrorType::NotElevated => {
+                        "Bot does not have enough permission to do this.".to_string()
+                    }
+                    _ => {
+                        log::error!("{error_type:?}");
+                        return Ok(());
+                    }
+                }
+            }
             _ => {
                 log::error!("{error:?}");
                 return Ok(());
@@ -259,7 +271,13 @@ impl CommandEventHandler for CommandEvents {
 
 pub fn commands() -> Vec<Command<Error, State>> {
     [
-        vec![highlight::command(), info::command(), starboard::command()].as_slice(),
+        vec![
+            highlight::command(),
+            info::command(),
+            starboard::command(),
+            stats::command(),
+        ]
+        .as_slice(),
         moderation::commands().as_slice(),
     ]
     .concat()

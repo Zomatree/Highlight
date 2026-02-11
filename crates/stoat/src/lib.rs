@@ -27,6 +27,7 @@ pub use error::{Error, Result};
 pub use events::EventHandler;
 pub use ext::*;
 pub use http::HttpClient;
+pub use ulid::Ulid;
 pub use utils::*;
 #[cfg(feature = "voice")]
 pub use voice::*;

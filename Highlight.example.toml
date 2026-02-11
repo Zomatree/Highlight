@@ -2,9 +2,8 @@
 api = "https://api.stoat.chat"
 
 [bot]
-prefix = "h!"
+prefix = ["h!"]
 token = ""
-id = ""
 
 [database]
 url = ""

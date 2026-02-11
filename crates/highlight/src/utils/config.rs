@@ -15,7 +15,7 @@ pub struct StoatConfig {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BotConfig {
-    pub prefix: String,
+    pub prefix: Vec<String>,
     pub token: String,
 }
 

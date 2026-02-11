@@ -1,6 +1,7 @@
 use stoat::{
     ChannelExt,
-    commands::{Command, Context, server_only},
+    commands::{Command, Context, HasServerPermissions, server_only},
+    types::ChannelPermission,
 };
 
 use crate::{Error, State};
@@ -39,4 +40,7 @@ pub fn command() -> Command<Error, State> {
     Command::new("limit", channel)
         .description("Sets the minimum required stars for a message.")
         .check(server_only)
+        .check(HasServerPermissions::new(vec![
+            ChannelPermission::ManageChannel,
+        ]))
 }

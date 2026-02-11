@@ -491,7 +491,10 @@ impl EventHandler for Events {
                 "@me",
                 &DataEditUser {
                     status: Some(UserStatus {
-                        text: Some(format!("{}help", &self.state.config.bot.prefix)),
+                        text: Some(format!(
+                            "{}help",
+                            self.state.config.bot.prefix.first().unwrap()
+                        )),
                         presence: None,
                     }),
                     display_name: None,

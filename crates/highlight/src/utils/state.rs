@@ -7,6 +7,7 @@ use std::{
     num::NonZero,
     sync::Arc,
 };
+use sysinfo::System;
 use tokio::sync::RwLock;
 
 use crate::{Config, Error, OriginalMessage, ServerConfig, create_highlight_regex};
@@ -18,6 +19,7 @@ pub struct State {
     pub cached_keywords: Arc<Mutex<LruCache<String, HashMap<String, (Vec<String>, Regex)>>>>,
     pub cached_blocked: Arc<Mutex<LruCache<String, HashSet<String>>>>,
     pub known_not_in_server: Arc<RwLock<HashMap<String, HashSet<String>>>>,
+    pub system: Arc<Mutex<System>>,
 }
 
 impl State {
@@ -31,6 +33,7 @@ impl State {
         let cached_keywords = Arc::new(Mutex::new(LruCache::new(NonZero::new(1000).unwrap())));
         let cached_blocked = Arc::new(Mutex::new(LruCache::new(NonZero::new(1000).unwrap())));
         let known_not_in_server = Arc::new(RwLock::new(HashMap::new()));
+        let system = Arc::new(Mutex::new(System::new_all()));
 
         Self {
             pool,
@@ -38,6 +41,7 @@ impl State {
             cached_keywords,
             cached_blocked,
             known_not_in_server,
+            system,
         }
     }
 

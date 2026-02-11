@@ -235,7 +235,7 @@ impl<
     }
 }
 
-pub struct ConsumeRest<T>(pub T);
+pub struct ConsumeRest<T = String>(pub T);
 
 #[async_trait]
 impl<

@@ -9,7 +9,7 @@ use crate::{
 use async_trait::async_trait;
 use stoat_models::v0::{
     Channel, CreateWebhookBody, DataDefaultChannelPermissions, DataSetRolePermissions, File,
-    Message, OptionsBulkDelete, VoiceInformation, Webhook,
+    Member, Message, OptionsBulkDelete, VoiceInformation, Webhook,
 };
 use stoat_permissions::{Override, OverrideField};
 
