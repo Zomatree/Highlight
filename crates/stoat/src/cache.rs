@@ -324,6 +324,13 @@ impl GlobalCache {
     }
 
     #[cfg(feature = "voice")]
+    pub fn get_voice_connection(&self, channel_id: &str) -> Option<crate::VoiceConnection> {
+        self.voice_connections
+            .get_sync(channel_id)
+            .map(|r| r.get().clone())
+    }
+
+    #[cfg(feature = "voice")]
     pub fn remove_voice_connection(&self, channel_id: &str) -> Option<crate::VoiceConnection> {
         self.voice_connections
             .remove_sync(channel_id)

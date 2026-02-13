@@ -9,6 +9,9 @@ use crate::{HttpClient, Identifiable, Result, builders::EditServerBuilder};
 
 #[async_trait]
 pub trait ServerExt {
+    #[cfg(feature = "voice")]
+    fn voice_clients(&self, cache: impl AsRef<crate::GlobalCache>) -> Vec<crate::VoiceConnection>;
+
     async fn fetch_member(
         &self,
         http: impl AsRef<HttpClient> + Send,
@@ -44,6 +47,14 @@ pub trait ServerExt {
 
 #[async_trait]
 impl ServerExt for Server {
+    #[cfg(feature = "voice")]
+    fn voice_clients(&self, cache: impl AsRef<crate::GlobalCache>) -> Vec<crate::VoiceConnection> {
+        self.channels
+            .iter()
+            .filter_map(|id| cache.as_ref().get_voice_connection(id))
+            .collect()
+    }
+
     async fn fetch_member(
         &self,
         http: impl AsRef<HttpClient> + Send,

@@ -30,6 +30,7 @@ pub enum Error {
     NotNsfw,
     InvalidTag,
     MalformedID,
+    InvalidUrl,
 
     NotAudioTrack,
     NotVideoTrack,

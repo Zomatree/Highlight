@@ -9,6 +9,7 @@ mod role;
 mod server;
 mod stoat;
 mod user;
+mod webhook;
 
 pub use channel::ChannelExt;
 pub use embed::EmbedExt;
@@ -21,3 +22,4 @@ pub use role::RoleExt;
 pub use server::ServerExt;
 pub use stoat::StoatExt;
 pub use user::UserExt;
+pub use webhook::WebhookExt;

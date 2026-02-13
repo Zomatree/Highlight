@@ -12,10 +12,11 @@ use stoat_models::v0::{
     BanListResult, BulkMessageResponse, Channel, CreateVoiceUserResponse, CreateWebhookBody,
     DataBanCreate, DataCreateRole, DataCreateServerChannel, DataDefaultChannelPermissions,
     DataEditChannel, DataEditMessage, DataEditRole, DataEditRoleRanks, DataEditServer,
-    DataEditUser, DataJoinCall, DataMemberEdit, DataMessageSend, DataSetRolePermissions,
-    DataSetServerRolePermission, Emoji, FetchServerResponse, FlagResponse, Invite, Member, Message,
-    MutualResponse, NewRoleResponse, OptionsBulkDelete, OptionsFetchServer, OptionsQueryMessages,
-    OptionsServerDelete, OptionsUnreact, Role, Server, ServerBan, User, UserProfile, Webhook,
+    DataEditUser, DataEditWebhook, DataJoinCall, DataMemberEdit, DataMessageSend,
+    DataSetRolePermissions, DataSetServerRolePermission, Emoji, FetchServerResponse, FlagResponse,
+    Invite, Member, Message, MutualResponse, NewRoleResponse, OptionsBulkDelete,
+    OptionsFetchServer, OptionsQueryMessages, OptionsServerDelete, OptionsUnreact, ResponseWebhook,
+    Role, Server, ServerBan, User, UserProfile, Webhook,
 };
 use stoat_permissions::DataPermissionsValue;
 use tokio::time::sleep;
@@ -628,6 +629,61 @@ impl HttpClient {
             .bytes()
             .await
             .map_err(Into::into)
+    }
+
+    pub async fn fetch_webhook(&self, webhook_id: &str) -> Result<ResponseWebhook> {
+        self.request(Method::GET, format!("/webhooks/{webhook_id}"))
+            .response()
+            .await
+    }
+
+    pub async fn fetch_webhook_token(&self, webhook_id: &str, token: &str) -> Result<Webhook> {
+        self.request(Method::GET, format!("/webhooks/{webhook_id}/{token}"))
+            .response()
+            .await
+    }
+
+    pub async fn edit_webhook(&self, webhook_id: &str, data: &DataEditWebhook) -> Result<Webhook> {
+        self.request(Method::PATCH, format!("/webhooks/{webhook_id}"))
+            .body(data)
+            .response()
+            .await
+    }
+
+    pub async fn edit_webhook_token(
+        &self,
+        webhook_id: &str,
+        data: &DataEditWebhook,
+        token: &str,
+    ) -> Result<Webhook> {
+        self.request(Method::PATCH, format!("/webhooks/{webhook_id}/{token}"))
+            .body(data)
+            .response()
+            .await
+    }
+
+    pub async fn delete_webhook(&self, webhook_id: &str) -> Result<()> {
+        self.request(Method::DELETE, format!("/webhooks/{webhook_id}"))
+            .send()
+            .await
+    }
+
+    pub async fn delete_webhook_token(&self, webhook_id: &str, token: &str) -> Result<()> {
+        self.request(Method::DELETE, format!("/webhooks/{webhook_id}/{token}"))
+            .send()
+            .await
+    }
+
+    pub async fn execute_webhook_token(
+        &self,
+        webhook_id: &str,
+        token: &str,
+        data: &DataMessageSend,
+    ) -> Result<Message> {
+        self.request(Method::POST, format!("/webhooks/{webhook_id}/{token}"))
+            .body(data)
+            .response()
+            .await
     }
 }
 

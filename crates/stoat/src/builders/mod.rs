@@ -5,6 +5,8 @@ mod edit_message;
 mod edit_role;
 mod edit_server;
 mod edit_user;
+mod edit_webhook;
+mod execute_webhook;
 mod fetch_messages;
 mod send_message;
 
@@ -15,5 +17,7 @@ pub use edit_message::*;
 pub use edit_role::*;
 pub use edit_server::*;
 pub use edit_user::*;
+pub use edit_webhook::*;
+pub use execute_webhook::*;
 pub use fetch_messages::*;
 pub use send_message::*;

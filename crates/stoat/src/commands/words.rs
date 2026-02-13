@@ -12,7 +12,10 @@ pub struct Words {
 impl Words {
     pub fn new(input: &str) -> Self {
         Self {
-            values: input.split(' ').map(|v| v.to_string()).collect(),
+            values: input
+                .split_ascii_whitespace()
+                .map(|v| v.to_string())
+                .collect(),
             pos: Arc::new(AtomicUsize::new(0)),
         }
     }

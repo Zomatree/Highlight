@@ -9,7 +9,7 @@ use crate::{
 use async_trait::async_trait;
 use stoat_models::v0::{
     Channel, CreateWebhookBody, DataDefaultChannelPermissions, DataSetRolePermissions, File,
-    Member, Message, OptionsBulkDelete, VoiceInformation, Webhook,
+    Message, OptionsBulkDelete, VoiceInformation, Webhook,
 };
 use stoat_permissions::{Override, OverrideField};
 
@@ -32,6 +32,10 @@ pub trait ChannelExt: Identifiable {
 
     fn supports_voice(&self) -> bool;
     fn mention(&self) -> String;
+
+    #[cfg(feature = "voice")]
+    fn voice_client(&self, cache: impl AsRef<crate::GlobalCache>)
+    -> Option<crate::VoiceConnection>;
 
     async fn with_typing<Fut: Future<Output = R> + Send, R>(
         &self,
@@ -208,6 +212,14 @@ impl ChannelExt for Channel {
 
     fn mention(&self) -> String {
         format!("<#{}>", self.id())
+    }
+
+    #[cfg(feature = "voice")]
+    fn voice_client(
+        &self,
+        cache: impl AsRef<crate::GlobalCache>,
+    ) -> Option<crate::VoiceConnection> {
+        cache.as_ref().get_voice_connection(self.id())
     }
 
     async fn with_typing<Fut: Future<Output = R> + Send, R>(
