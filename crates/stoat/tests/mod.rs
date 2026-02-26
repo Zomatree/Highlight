@@ -1,12 +1,3 @@
-#[cfg(test)]
-pub mod builders;
-#[cfg(test)]
-pub mod commands;
-#[cfg(test)]
-pub mod ext;
-#[cfg(test)]
-pub mod voice;
-
 use stoat::{Client, Context, EventHandler, async_trait};
 
 #[derive(Debug, Clone)]
@@ -38,9 +29,8 @@ impl EventHandler for Events {
         Ok(())
     }
 }
-
 #[tokio::test]
-async fn main() {
+async fn test_run() {
     let token = std::env::var("token").unwrap_or_else(|_| "token".to_string());
     let r = Client::new(Events).await.unwrap().run(token).await;
     assert!(r.is_ok());
