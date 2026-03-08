@@ -13,6 +13,7 @@ pub use stoat_permissions::{
     calculate_user_permissions,
 };
 
+/// Stores all relavent info for a permission query.
 pub struct PermissionQuery<'a> {
     cache: GlobalCache,
     http: HttpClient,
@@ -25,6 +26,9 @@ pub struct PermissionQuery<'a> {
 }
 
 impl<'a> PermissionQuery<'a> {
+    /// Creates an instance of [`PermissionQuery`].
+    ///
+    /// You should use [`user_permissions_query`] over this in most cases.
     pub fn new(cache: GlobalCache, http: HttpClient, perspective: Cow<'a, User>) -> Self {
         Self {
             cache,
@@ -389,6 +393,9 @@ impl stoat_permissions::PermissionQuery for PermissionQuery<'_> {
     }
 }
 
+/// Starts a permissions query for a specific user.
+///
+/// The returning [`PermissionQuery`] can be passed to one of [`calculate_channel_permissions`], [`calculate_server_permissions`], [`calculate_user_permissions`] to get the permissions value.
 pub fn user_permissions_query<'a>(
     cache: GlobalCache,
     http: HttpClient,

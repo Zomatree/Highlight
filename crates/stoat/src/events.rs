@@ -870,7 +870,7 @@ pub async fn update_state<H: EventHandler + Clone + Send + Sync + 'static>(
 #[async_trait]
 #[allow(unused)]
 pub trait EventHandler: Sized {
-    type Error: From<Error> + Debug + Send + Sync + 'static;
+    type Error: From<Error> + Clone + Debug + Send + Sync + 'static;
 
     async fn event(&self, context: Context, event: EventV1) -> Result<(), Self::Error> {
         Ok(())

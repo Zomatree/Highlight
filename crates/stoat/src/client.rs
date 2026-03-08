@@ -8,7 +8,7 @@ use tokio::{
 };
 
 use crate::{
-    Context, Error,
+    CacheConfig, Context, Error,
     cache::GlobalCache,
     context::Events,
     events::{EventHandler, update_state},
@@ -63,25 +63,32 @@ pub struct Client<H> {
     pub handler: Arc<H>,
     pub http: HttpClient,
     pub waiters: Notifiers,
-    events: Option<Events>,
+    pub events: Option<Events>,
 }
 
 impl<H: EventHandler + Clone + Send + Sync + 'static> Client<H> {
     /// Constructs a client with the official instance.
-    /// Use [`Self::new_with_api_url`] to customise the Stoat instance.
+    ///
+    /// Use the `new_with_*` functions to customise the creation.
     pub async fn new(handler: H) -> Result<Self, H::Error> {
-        Self::new_with_api_url(handler, "https://api.stoat.chat").await
+        Self::new_with_config(handler, CacheConfig::default()).await
+    }
+
+    /// Constructs a client with a custom cache config.
+    pub async fn new_with_config(handler: H, config: CacheConfig) -> Result<Self, H::Error> {
+        Self::new_with_api_url(handler, config, "https://api.stoat.chat").await
     }
 
     /// Constructs a client with a custom Stoat instance.
     pub async fn new_with_api_url(
         handler: H,
+        config: CacheConfig,
         base_url: impl Into<String>,
     ) -> Result<Self, H::Error> {
         let http = HttpClient::new(base_url.into(), None, None).await?;
 
         Ok(Self {
-            state: GlobalCache::new((*http.api_config).clone()),
+            state: GlobalCache::new((*http.api_config).clone(), config),
             handler: Arc::new(handler),
             http,
             waiters: Notifiers::default(),

@@ -1,23 +1,35 @@
 use async_trait::async_trait;
-use stoat_models::v0::{DataBanCreate, DataMemberEdit, Member, Role, ServerBan, UserVoiceState};
+use stoat_models::v0::{Channel, DataBanCreate, DataMemberEdit, Member, Role, ServerBan, UserVoiceState};
 
 use crate::{GlobalCache, HttpClient, Identifiable, Result, builders::EditMemberBuilder};
 
 #[async_trait]
 pub trait MemberExt {
+    /// Bans a member from its server.
     async fn ban(
         &self,
         http: impl AsRef<HttpClient> + Send,
         reason: Option<String>,
     ) -> Result<ServerBan>;
+
+    /// Edits a member.
     fn edit(&self, http: impl AsRef<HttpClient>) -> EditMemberBuilder;
+
+    /// Kicks a member from its server.
     async fn kick(&self, http: impl AsRef<HttpClient> + Send) -> Result<()>;
+
+    /// Bans a member from its server.
     async fn add_roles(
         &self,
         http: impl AsRef<HttpClient> + Send,
-        roles: Vec<Role>,
+        roles: &[Role],
     ) -> Result<Member>;
-    fn voice(&self, cache: impl AsRef<GlobalCache>) -> Option<(String, UserVoiceState)>;
+
+    /// Gets the current voice channel and user voice state for a member if they are connected to a voice channel in this server
+    fn voice(&self, cache: impl AsRef<GlobalCache>) -> Option<(Channel, UserVoiceState)>;
+
+    /// Formats a user mention for the member.
+    ///
     fn mention(&self) -> String;
 }
 
@@ -50,10 +62,10 @@ impl MemberExt for Member {
     async fn add_roles(
         &self,
         http: impl AsRef<HttpClient> + Send,
-        roles: Vec<Role>,
+        roles: &[Role],
     ) -> Result<Member> {
         let mut new_roles = self.roles.clone();
-        new_roles.extend(roles.into_iter().map(|r| r.id));
+        new_roles.extend(roles.iter().map(|r| r.id.clone()));
 
         http.as_ref()
             .edit_member(
@@ -73,21 +85,23 @@ impl MemberExt for Member {
             .await
     }
 
-    fn voice(&self, cache: impl AsRef<GlobalCache>) -> Option<(String, UserVoiceState)> {
+    fn voice(&self, cache: impl AsRef<GlobalCache>) -> Option<(Channel, UserVoiceState)> {
         let server_channels = cache
             .as_ref()
             .servers
             .get_sync(&self.id.server)
             .map(|s| s.channels.clone())?;
 
-        for channel in server_channels {
-            if let Some(channel_voice_state) = cache.as_ref().voice_states.get_sync(&channel) {
+        for channel_id in server_channels {
+            if let Some(channel_voice_state) = cache.as_ref().voice_states.get_sync(&channel_id) {
                 if let Some(user_voice_state) = channel_voice_state
                     .participants
                     .iter()
                     .find(|s| &s.id == &self.id.user)
                 {
-                    return Some((channel, user_voice_state.clone()));
+                    if let Some(channel) = cache.as_ref().get_channel(&channel_id) {
+                        return Some((channel, user_voice_state.clone()));
+                    }
                 }
             }
         }

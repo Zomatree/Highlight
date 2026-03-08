@@ -36,6 +36,7 @@ macro_rules! generate_notifiers {
         impl Notifiers {
             paste! {
                 $(
+                    #[doc = "Waits for the `" $event "` event to be received."]
                     pub async fn [<wait_for_ $event>]<
                         F: Fn(&$event_arg) -> bool + Send + Sync + 'static
                     >(
@@ -46,15 +47,18 @@ macro_rules! generate_notifiers {
                         self.inner_wait(&self.$event, check, timeout).await
                     }
 
+                    #[doc = "Invokes the `" $event "` event."]
                     pub async fn [<invoke_ $event _waiters>](&self, arg: &$event_arg) {
                         self.inner_invoke(&self.$event, arg).await
                     }
 
+                    #[doc = "Clears all waiters for the `" $event "` event, this will cause them to return [`Error::BrokenChannel`] early."]
                     pub async fn [<clear_ $event _waiters>](&self) {
                         self.$event.lock().await.clear();
                     }
                 )*
 
+                #[doc = "Clears all waiters for all events, this will cause them to return [`Error::BrokenChannel`] early."]
                 pub async fn clear_all_waiters(&self) {
                     $(
                         self.[<clear_ $event _waiters>]().await;

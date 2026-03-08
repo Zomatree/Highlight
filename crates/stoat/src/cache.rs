@@ -9,10 +9,28 @@ use stoat_models::v0::{
 
 use crate::types::{StoatConfig, VoiceNode};
 
-/// Holds all local state.
+/// Config options for the internal cache.
+#[derive(Debug, Clone)]
+pub struct CacheConfig {
+    /// Max amount of messages to hold in the cache
+    ///
+    /// Defaults to 10k.
+    pub max_messages: usize
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            max_messages: 10000
+        }
+    }
+}
+
+/// Holds all locally cached objects.
 #[derive(Debug, Clone)]
 pub struct GlobalCache {
     pub api_config: Arc<StoatConfig>,
+    pub config: Arc<CacheConfig>,
 
     pub servers: Arc<HashMap<String, Server>>,
     pub users: Arc<HashMap<String, User>>,
@@ -29,9 +47,10 @@ pub struct GlobalCache {
 }
 
 impl GlobalCache {
-    pub fn new(api_config: StoatConfig) -> Self {
+    pub fn new(api_config: StoatConfig, config: CacheConfig) -> Self {
         Self {
             api_config: Arc::new(api_config),
+            config: Arc::new(config),
             servers: Arc::new(HashMap::new()),
             users: Arc::new(HashMap::new()),
             members: Arc::new(HashMap::new()),
@@ -47,6 +66,7 @@ impl GlobalCache {
         }
     }
 
+    /// Clears all internal state.
     pub async fn cleanup(&self) {
         self.servers.clear_async().await;
         self.users.clear_async().await;
@@ -74,22 +94,27 @@ impl GlobalCache {
         }
     }
 
+    /// Base URL for Autumn.
     pub fn autumn_url(&self) -> &str {
         &self.api_config.features.autumn.url
     }
 
+    /// All public Livekit voice nodes.
     pub fn livekit_nodes(&self) -> &[VoiceNode] {
         &self.api_config.features.livekit.nodes
     }
 
+    /// Gets a server.
     pub fn get_server(&self, server_id: &str) -> Option<Server> {
         self.servers.get_sync(server_id).map(|r| r.get().clone())
     }
 
+    /// Inserts a server.
     pub fn insert_server(&self, server: Server) {
         self.servers.upsert_sync(server.id.clone(), server);
     }
 
+    /// Updates a server.
     pub fn update_server_with<R>(
         &self,
         server_id: &str,
@@ -98,34 +123,41 @@ impl GlobalCache {
         self.servers.get_sync(server_id).map(|mut r| f(r.get_mut()))
     }
 
+    /// Removes a server.
     pub fn remove_server(&self, server_id: &str) -> Option<Server> {
         self.servers
             .remove_sync(server_id)
             .map(|(_, server)| server)
     }
 
+    /// Gets a user.
     pub fn get_user(&self, user_id: &str) -> Option<User> {
         self.users.get_sync(user_id).map(|r| r.get().clone())
     }
 
+    /// Inserts a user.
     pub fn insert_user(&self, user: User) {
         self.users.upsert_sync(user.id.clone(), user);
     }
 
+    /// Updates a user.
     pub fn update_user_with<R>(&self, user_id: &str, f: impl FnOnce(&mut User) -> R) -> Option<R> {
         self.users.get_sync(user_id).map(|mut r| f(r.get_mut()))
     }
 
+    /// Removes a user.
     pub fn remove_user(&self, user_id: &str) -> Option<User> {
         self.users.remove_sync(user_id).map(|(_, server)| server)
     }
 
+    /// Gets a server member.
     pub fn get_member(&self, server_id: &str, user_id: &str) -> Option<Member> {
         self.members
             .get_sync(server_id)
             .and_then(|members| members.get_sync(user_id).map(|r| r.get().clone()))
     }
 
+    /// Inserts a server member.
     pub fn insert_member(&self, member: Member) {
         self.members
             .entry_sync(member.id.server.clone())
@@ -134,6 +166,7 @@ impl GlobalCache {
             .upsert_sync(member.id.user.clone(), member);
     }
 
+    /// Updates a server member.
     pub fn update_member_with<R>(
         &self,
         server_id: &str,
@@ -145,20 +178,24 @@ impl GlobalCache {
             .and_then(|members| members.get_sync(user_id).map(|mut r| f(r.get_mut())))
     }
 
+    /// Removes a server member.
     pub fn remove_member(&self, server_id: &str, user_id: &str) -> Option<Member> {
         self.members
             .get_sync(server_id)
             .and_then(|members| members.remove_sync(user_id).map(|(_, member)| member))
     }
 
+    /// Gets a channel.
     pub fn get_channel(&self, channel_id: &str) -> Option<Channel> {
         self.channels.get_sync(channel_id).map(|r| r.get().clone())
     }
 
+    /// Inserts a channel.
     pub fn insert_channel(&self, channel: Channel) {
         self.channels.upsert_sync(channel.id().to_string(), channel);
     }
 
+    /// Updates a channel.
     pub fn update_channel_with<R>(
         &self,
         channel_id: &str,
@@ -169,12 +206,14 @@ impl GlobalCache {
             .map(|mut r| f(r.get_mut()))
     }
 
+    /// Removes a channel.
     pub fn remove_channel(&self, channel_id: &str) -> Option<Channel> {
         self.channels
             .remove_sync(channel_id)
             .map(|(_, channel)| channel)
     }
 
+    /// Gets a message.
     pub fn get_message(&self, message_id: &str) -> Option<Message> {
         self.messages
             .read()
@@ -184,16 +223,18 @@ impl GlobalCache {
             .cloned()
     }
 
+    /// Inserts a message.
     pub fn insert_message(&self, message: Message) {
         let mut messages = self.messages.write().unwrap();
 
         messages.push_front(message);
 
-        if messages.len() > 1000 {
+        if messages.len() > self.config.max_messages {
             messages.pop_back();
         }
     }
 
+    /// Updates a message.
     pub fn update_message_with<R>(
         &self,
         message_id: &str,
@@ -207,6 +248,7 @@ impl GlobalCache {
             .map(f)
     }
 
+    /// Removes a message.
     pub fn remove_message(&self, message_id: &str) -> Option<Message> {
         let mut messages = self.messages.write().unwrap();
 
@@ -221,6 +263,7 @@ impl GlobalCache {
         }
     }
 
+    /// Bulk removes messages.
     pub fn remove_messages(&self, message_ids: &[String]) -> Vec<Message> {
         let mut channel_messages = self.messages.write().unwrap();
 
@@ -240,29 +283,34 @@ impl GlobalCache {
         messages
     }
 
+    /// Current logged in user.
     pub fn get_current_user(&self) -> Option<User> {
         self.users
             .get_sync(&self.get_current_user_id()?)
             .map(|r| r.get().clone())
     }
 
+    /// Inserts a channel voice state.
     pub fn insert_voice_state(&self, voice_state: ChannelVoiceState) {
         self.voice_states
             .upsert_sync(voice_state.id.clone(), voice_state);
     }
 
+    /// Removes a channel voice state.
     pub fn remove_voice_state(&self, channel_id: &str) -> Option<ChannelVoiceState> {
         self.voice_states
             .remove_sync(channel_id)
             .map(|(_, voice_state)| voice_state)
     }
 
+    /// Gets a channel voice state.
     pub fn get_voice_state(&self, channel_id: &str) -> Option<ChannelVoiceState> {
         self.voice_states
             .get_sync(channel_id)
             .map(|r| r.get().clone())
     }
 
+    /// Inserts a voice state partipant.
     pub fn insert_voice_state_partipant(&self, channel_id: &str, user_voice_state: UserVoiceState) {
         let mut channel_voice_state = self
             .voice_states
@@ -279,6 +327,7 @@ impl GlobalCache {
         channel_voice_state.participants.push(user_voice_state);
     }
 
+    /// Removes a voice state partipant
     pub fn remove_voice_state_partipant(
         &self,
         channel_id: &str,
@@ -300,6 +349,7 @@ impl GlobalCache {
         }
     }
 
+    /// Updates a voice state partipant.
     pub fn update_voice_state_partipant_with<R>(
         &self,
         channel_id: &str,
@@ -317,12 +367,14 @@ impl GlobalCache {
         }
     }
 
+    /// Inserts a voice connection.
     #[cfg(feature = "voice")]
     pub fn insert_voice_connection(&self, connection: crate::VoiceConnection) {
         self.voice_connections
             .upsert_sync(connection.channel_id(), connection);
     }
 
+    /// Gets a voice connection.
     #[cfg(feature = "voice")]
     pub fn get_voice_connection(&self, channel_id: &str) -> Option<crate::VoiceConnection> {
         self.voice_connections
@@ -330,6 +382,7 @@ impl GlobalCache {
             .map(|r| r.get().clone())
     }
 
+    /// Removes a voice connection.
     #[cfg(feature = "voice")]
     pub fn remove_voice_connection(&self, channel_id: &str) -> Option<crate::VoiceConnection> {
         self.voice_connections
@@ -337,18 +390,22 @@ impl GlobalCache {
             .map(|(_, voice_connection)| voice_connection)
     }
 
+    /// Inserts an emoji.
     pub fn insert_emoji(&self, emoji: Emoji) {
         self.emojis.upsert_sync(emoji.id.clone(), emoji);
     }
 
+    /// Gets an emoji.
     pub fn get_emoji(&self, emoji_id: &str) -> Option<Emoji> {
         self.emojis.get_sync(emoji_id).map(|r| r.get().clone())
     }
 
+    /// Removes an emoji.
     pub fn remove_emoji(&self, emoji_id: &str) -> Option<Emoji> {
         self.emojis.remove_sync(emoji_id).map(|(_, emoji)| emoji)
     }
 
+    /// Removes all server emojis.
     pub fn remove_server_emojis(&self, server_id: &str) -> Vec<Emoji> {
         let parent = EmojiParent::Server {
             id: server_id.to_string(),
@@ -370,10 +427,12 @@ impl GlobalCache {
         emojis
     }
 
+    /// Sets the current logged in user id.
     pub fn set_current_user_id(&self, user_id: String) {
         *self.current_user_id.write().unwrap() = Some(user_id);
     }
 
+    // Gets the current logged in user id.
     pub fn get_current_user_id(&self) -> Option<String> {
         self.current_user_id
             .read()

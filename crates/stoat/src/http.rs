@@ -42,6 +42,9 @@ enum Service {
     Autumn,
 }
 
+/// Handles all HTTP requests to the Stoat api.
+///
+/// All api requests are automatically handled for rate-limits and will pause executing the request until the ratelimit is over.
 #[derive(Clone, Debug)]
 pub struct HttpClient {
     pub base: String,
@@ -71,6 +74,10 @@ impl AsRef<StoatConfig> for StoatConfig {
 }
 
 impl HttpClient {
+    /// Creates a new instance of [`HttpClient`]
+    ///
+    /// You should not need to create your own instance of [`HttpClient`] usually as its handled automatically by [`Client`]
+    /// but this can be useful for webhooks and one-off requests outside of running a client.
     pub async fn new(base: String, token: Option<String>, user_id: Option<String>) -> Result<Self> {
         let client = Client::new();
         let ratelimits = Arc::new(HashMap::new());
@@ -93,6 +100,7 @@ impl HttpClient {
         })
     }
 
+    /// Creates a raw http request for a specific method and route.
     pub fn request(&self, method: Method, route: impl AsRef<str>) -> HttpRequest {
         let mut builder = self
             .inner
@@ -110,6 +118,7 @@ impl HttpClient {
         }
     }
 
+    /// Creates a raw autumn http request for a specific method and route.
     pub fn autumn_request(&self, method: Method, route: impl AsRef<str>) -> HttpRequest {
         let mut builder = self
             .inner
@@ -130,6 +139,7 @@ impl HttpClient {
         }
     }
 
+    /// Formats a url string for a file hosted on Stoat.
     pub fn format_file_url(&self, tag: &str, id: &str, filename: Option<&str>) -> String {
         let autumn_url = &self.api_config.features.autumn.url;
 

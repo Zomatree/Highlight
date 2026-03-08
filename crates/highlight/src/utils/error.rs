@@ -18,3 +18,6 @@ impl From<sqlx::Error> for Error {
         Self::PgError(Arc::new(value))
     }
 }
+
+#[derive(Copy, Clone)]
+pub struct Handled;

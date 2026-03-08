@@ -10,6 +10,10 @@ use crate::{
     websocket::{EventMessage, ProgramMessage},
 };
 
+
+/// Represents the outgoing websocket connection to Stoat.
+///
+/// This struct is cheaply cloneable using [`Arc`] internally.
 #[derive(Debug, Clone)]
 pub struct Events(pub(crate) Arc<UnboundedSender<EventMessage>>);
 
@@ -24,10 +28,12 @@ impl Events {
         self.0.send(message).map_err(|_| Error::BrokenChannel)
     }
 
+    /// Sends a raw [`ClientMessage`] to Stoat.
     pub fn send_event(&self, event: ClientMessage) -> Result<(), Error> {
         self.send_message(EventMessage::Client(event))
     }
 
+    /// Closes the websocket connection, this will begin to shutdown the client.
     pub fn close(&self) -> Result<(), Error> {
         self.send_message(EventMessage::Program(ProgramMessage::Close))
     }

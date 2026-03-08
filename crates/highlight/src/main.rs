@@ -1,4 +1,4 @@
-use stoat::{Client, commands::CommandHandler};
+use stoat::{CacheConfig, Client, commands::CommandHandler};
 
 mod commands;
 mod events;
@@ -23,7 +23,7 @@ async fn main() -> Result<(), Error> {
         state: state.clone(),
     };
 
-    Client::new_with_api_url(events, &state.config.stoat.api)
+    Client::new_with_api_url(events, CacheConfig::default(), &state.config.stoat.api)
         .await?
         .run(&state.config.bot.token)
         .await
