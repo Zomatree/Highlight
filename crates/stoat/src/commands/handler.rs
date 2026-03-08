@@ -150,6 +150,10 @@ impl<
                 self.event_handler.error(cmd_context.clone(), e).await?;
             } else {
                 if let Err(e) = command.handle.handle(cmd_context.clone()).await {
+                    if let Some(error) = &command.error {
+                        error.handle(cmd_context.clone(), e.clone()).await?;
+                    };
+
                     self.event_handler.error(cmd_context.clone(), e).await?;
                 };
 
@@ -164,7 +168,10 @@ impl<
 }
 
 #[derive(Debug, Clone)]
-pub struct Commands<E, S> {
+pub struct Commands<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> {
     mapping: Arc<RwLock<HashMap<String, Command<E, S>>>>,
 }
 

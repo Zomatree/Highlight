@@ -39,6 +39,10 @@ impl CommandEventHandler for CommandEvents {
     }
 
     async fn error(&self, ctx: Context<Error, State>, error: Error) -> Result<(), Error> {
+        if ctx.local_cache(|| None::<Handled>).is_some() {
+            return Ok(());
+        };
+
         let msg = match error {
             Error::StoatError(StoatError::NotInServer) => {
                 "This command can only be used in a server".to_string()

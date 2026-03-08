@@ -14,9 +14,13 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct Command<E, S> {
+pub struct Command<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> {
     pub name: String,
     pub handle: Arc<dyn CommandHandle<(), E, S>>,
+    pub error: Option<Arc<dyn CommandErrorHandler<E, S>>>,
     pub children: HashMap<String, Command<E, S>>,
     pub checks: Vec<Arc<dyn Check<E, S>>>,
     pub aliases: Vec<String>,
@@ -26,7 +30,10 @@ pub struct Command<E, S> {
     pub hidden: bool,
 }
 
-impl<E, S> fmt::Debug for Command<E, S> {
+impl<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+> fmt::Debug for Command<E, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Command")
             .field("name", &self.name)
@@ -55,6 +62,7 @@ impl<
         Self {
             name: name.into(),
             handle: Arc::new(erased),
+            error: None,
             children: HashMap::new(),
             checks: Vec::new(),
             aliases: Vec::new(),
@@ -74,6 +82,12 @@ impl<
         for alias in command.aliases.clone() {
             self.children.insert(alias, command.clone());
         }
+
+        self
+    }
+
+    pub fn error<H: CommandErrorHandler<E, S> + 'static>(mut self, handler: H) -> Self {
+        self.error = Some(Arc::new(handler));
 
         self
     }
@@ -232,5 +246,25 @@ impl<
 {
     async fn handle(&self, context: Context<E, S>) -> Result<(), E> {
         self.handle.handle(context).await
+    }
+}
+
+#[async_trait]
+pub trait CommandErrorHandler<
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+>: Send + Sync {
+    async fn handle(&self, context: Context<E, S>, error: E) -> Result<(), E>;
+}
+
+#[async_trait]
+impl<E, S, F> CommandErrorHandler<E, S> for F where
+    E: From<Error> + Clone + Debug + Send + Sync + 'static,
+    S: Debug + Clone + Send + Sync + 'static,
+    F: AsyncFn2<Context<E, S>, E, Output = Result<(), E>> + Send + Sync + 'static,
+    F::OutputFuture: Send
+{
+    async fn handle(&self, context: Context<E, S>, error: E) -> Result<(), E> {
+        (self)(context, error).await
     }
 }
