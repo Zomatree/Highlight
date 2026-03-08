@@ -5,7 +5,10 @@ use std::{
 };
 
 use bytes::Bytes;
-use reqwest::{Client, Method, Request, RequestBuilder, Response};
+use reqwest::{
+    Client, Method, Request, RequestBuilder, Response,
+    multipart::{Form, Part},
+};
 use scc::HashMap;
 use serde::{Deserialize, Serialize};
 use stoat_models::v0::{
@@ -22,6 +25,7 @@ use stoat_permissions::DataPermissionsValue;
 use tokio::time::sleep;
 
 use crate::{
+    LocalFile,
     error::{Error, Result},
     types::{AutumnResponse, StoatConfig},
 };
@@ -226,9 +230,9 @@ impl HttpClient {
         .await
     }
 
-    pub async fn upload_file(&self, tag: &str, file: &[u8]) -> Result<AutumnResponse> {
+    pub async fn upload_file(&self, tag: &str, file: LocalFile) -> Result<AutumnResponse> {
         self.autumn_request(Method::POST, format!("/{tag}"))
-            .form(&[("file", file)])
+            .multipart(Form::new().part("file", Part::stream(file.body).file_name(file.name)))
             .response()
             .await
     }
@@ -767,6 +771,12 @@ impl HttpRequest {
 
     pub fn form<I: Serialize>(mut self, form: &I) -> HttpRequest {
         self.builder = self.builder.form(form);
+
+        self
+    }
+
+    pub fn multipart(mut self, multipart: Form) -> HttpRequest {
+        self.builder = self.builder.multipart(multipart);
 
         self
     }

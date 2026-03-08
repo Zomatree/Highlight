@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use stoat_models::v0::{Channel, FetchServerResponse, OptionsFetchServer, Server, User};
 
-use crate::{Client, Context, Error, HttpClient, Result, types::Tag};
+use crate::{Client, Context, Error, HttpClient, LocalFile, Result, types::Tag};
 
 #[async_trait]
 pub trait StoatExt {
@@ -12,8 +12,8 @@ pub trait StoatExt {
         self._http().fetch_user(user_id).await
     }
 
-    async fn upload_file(&self, tag: Tag, data: &[u8]) -> Result<String> {
-        let response = self._http().upload_file(tag.as_str(), data).await?;
+    async fn upload_file(&self, tag: Tag, file: LocalFile) -> Result<String> {
+        let response = self._http().upload_file(tag.as_str(), file).await?;
 
         Ok(response.id)
     }

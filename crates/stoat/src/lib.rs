@@ -26,6 +26,7 @@ pub use context::Context;
 pub use error::{Error, Result};
 pub use events::EventHandler;
 pub use ext::*;
+pub use file::LocalFile;
 pub use http::HttpClient;
 pub use ulid::Ulid;
 pub use utils::*;
