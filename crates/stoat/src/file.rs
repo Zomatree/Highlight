@@ -3,12 +3,14 @@ use tokio::fs::File;
 
 use reqwest::Body;
 
+/// A local file ready to be uploaded
 pub struct LocalFile {
     pub name: String,
     pub body: Body,
 }
 
 impl LocalFile {
+    /// Creates a local file with a filename and body
     pub fn new<B: Into<Body>>(name: String, body: B) -> Self {
         Self {
             name,
@@ -16,6 +18,9 @@ impl LocalFile {
         }
     }
 
+    /// Creates a local file from an existing file
+    ///
+    /// reuses the filename
     pub async fn from_path<P: AsRef<Path>>(path: P) -> Self {
         let path = path.as_ref();
 
@@ -30,6 +35,7 @@ impl LocalFile {
         Self::new(filename, file)
     }
 
+    /// Marks the file as a spoiler.
     pub fn spoiler(mut self) -> Self {
         if !self.is_spoiler() {
             self.name = format!("SPOILER_{}", &self.name);
@@ -38,6 +44,7 @@ impl LocalFile {
         self
     }
 
+    /// Returns whether the file is a spoiler
     pub fn is_spoiler(&self) -> bool {
         self.name.starts_with("SPOILER_")
     }
